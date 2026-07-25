@@ -44,9 +44,10 @@ if [ -f logo.jpg ]; then
   ICONSET="$(mktemp -d)/AppIcon.iconset"
   mkdir -p "$ICONSET"
   SQ="$(mktemp).png"
-  # Pad to square (white background) so the icon isn't stretched, then fit to 1024.
-  DIM=$(sips -g pixelHeight -g pixelWidth logo.jpg | awk '/pixel/{print $2}' | sort -rn | head -1)
-  sips -s format png --padColor FFFFFF --padToHeightWidth "$DIM" "$DIM" logo.jpg --out "$SQ" >/dev/null
+  # Center-crop to a square (keeps the logo's dark background seamless — no bars),
+  # using the smaller side as the square size.
+  SIDE=$(sips -g pixelHeight -g pixelWidth logo.jpg | awk '/pixel/{print $2}' | sort -n | head -1)
+  sips -s format png -c "$SIDE" "$SIDE" logo.jpg --out "$SQ" >/dev/null
   for size in 16 32 128 256 512; do
     sips -z $size $size "$SQ" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
     sips -z $((size*2)) $((size*2)) "$SQ" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
