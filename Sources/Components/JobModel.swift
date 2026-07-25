@@ -1,0 +1,71 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+/// Shared state for a tool: selected files, output folder, run status, result.
+/// Uses ObservableObject (not @Observable) to keep the macOS 13 deployment target.
+@MainActor
+final class JobModel: ObservableObject {
+    @Published var files: [URL] = []
+    @Published var outputDir: URL?          // nil = alongside source
+    @Published var isRunning = false
+    @Published var progress = 0.0           // 0…1
+    @Published var status = ""
+    @Published var result: JobResult?
+    @Published var error: String?
+
+    let allowedTypes: [UTType]
+    let allowsMultiple: Bool
+
+    init(types: [UTType], multiple: Bool = true) {
+        self.allowedTypes = types
+        self.allowsMultiple = multiple
+    }
+
+    func add(_ urls: [URL]) {
+        let matching = urls.filter { url in
+            allowedTypes.contains { url.conformsTo($0) }
+        }
+        let toAdd = allowsMultiple ? matching : Array(matching.prefix(1))
+        if !allowsMultiple { files = [] }
+        for u in toAdd where !files.contains(u) { files.append(u) }
+        result = nil; error = nil
+    }
+
+    func remove(_ url: URL) { files.removeAll { $0 == url } }
+    func clear() { files = []; result = nil; error = nil; progress = 0; status = "" }
+    func move(from source: IndexSet, to dest: Int) { files.move(fromOffsets: source, toOffset: dest) }
+
+    /// Runs `work` off the main actor, funnelling result/error/running state.
+    func run(_ work: @escaping @Sendable ([URL]) throws -> JobResult) {
+        guard !files.isEmpty else { error = "No files selected"; return }
+        let input = files
+        isRunning = true; error = nil; result = nil; progress = 0
+        status = "Working…"
+        Task.detached(priority: .userInitiated) {
+            do {
+                let r = try work(input)
+                await MainActor.run {
+                    self.result = r; self.isRunning = false; self.progress = 1
+                    self.status = "Done"
+                }
+            } catch {
+                await MainActor.run {
+                    self.error = error.localizedDescription; self.isRunning = false
+                    self.status = ""
+                }
+            }
+        }
+    }
+}
+
+extension URL {
+    func conformsTo(_ type: UTType) -> Bool {
+        guard let t = try? resourceValues(forKeys: [.contentTypeKey]).contentType else {
+            // Fall back to extension matching.
+            return type.preferredFilenameExtension.map {
+                pathExtension.lowercased() == $0
+            } ?? false
+        }
+        return t.conforms(to: type)
+    }
+}
