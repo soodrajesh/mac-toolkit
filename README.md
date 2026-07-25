@@ -55,7 +55,11 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **PDF Security** — add/remove password, diagonal watermark.
 - **Image Tools** — compress/convert PNG/JPEG/HEIC/TIFF (incl. HEIC → JPEG),
   resize, EXIF/GPS always stripped.
-- **OCR / Text** — extract text from scanned PDFs/images on-device (Vision).
+- **Icon Generator** — image → favicon.ico + full PNG set (16–1024) + AppIcon.icns.
+- **Remove Background** — one-click subject cutout to transparent PNG (Vision, macOS 14+).
+- **QR Code** — generate from text/URL (save PNG) and read/decode from images.
+- **OCR / Text** — extract text from scanned PDFs/images, or build a **searchable
+  PDF** (invisible selectable text layer) — on-device (Vision).
 
 ## Optional: stronger PDF compression
 

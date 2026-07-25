@@ -37,6 +37,9 @@ struct ToolboxApp: App {
         case .pdfPages:    PDFPagesView()
         case .pdfSecurity: PDFSecurityView()
         case .imageTools:  ImageToolsView()
+        case .iconGen:     IconGeneratorView()
+        case .removeBG:    RemoveBackgroundView()
+        case .qr:          QRCodeView()
         case .ocr:         OCRView()
         }
     }

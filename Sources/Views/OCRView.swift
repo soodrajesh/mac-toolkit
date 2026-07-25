@@ -2,30 +2,42 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct OCRView: View {
+    enum Output: String, CaseIterable, Identifiable {
+        case text = "Extract text"
+        case searchablePDF = "Searchable PDF"
+        var id: String { rawValue }
+    }
+
     @StateObject private var model = JobModel(types: [.pdf, .image], multiple: false)
     @State private var text = ""
+    @State private var output: Output = .text
+    @State private var pdfResult: URL?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("OCR / Text").font(.title2).bold()
-                    Text("Extract text from scanned PDFs or images (on-device, Vision).")
+                    Text("Extract text, or produce a searchable PDF (on-device, Vision).")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
 
+                Picker("Output", selection: $output) {
+                    ForEach(Output.allCases) { Text($0.rawValue).tag($0) }
+                }.pickerStyle(.segmented).frame(width: 280)
+
                 HStack(spacing: 12) {
                     Button(action: run) {
                         if model.isRunning { ProgressView().controlSize(.small) }
-                        else { Text("Recognize Text") }
+                        else { Text(output == .text ? "Recognize Text" : "Build Searchable PDF") }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.files.isEmpty || model.isRunning)
 
-                    if !text.isEmpty {
+                    if output == .text && !text.isEmpty {
                         Button {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(text, forType: .string)
@@ -40,7 +52,19 @@ struct OCRView: View {
                         .foregroundStyle(.red)
                 }
 
-                if !text.isEmpty {
+                if let pdfResult {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Searchable PDF created", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Button { revealInFinder([pdfResult]) } label: {
+                            Label("Reveal in Finder", systemImage: "folder")
+                        }.controlSize(.small)
+                    }
+                    .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.07)))
+                }
+
+                if output == .text && !text.isEmpty {
                     TextEditor(text: .constant(text))
                         .font(.system(.body, design: .monospaced))
                         .frame(minHeight: 260)
@@ -53,16 +77,22 @@ struct OCRView: View {
 
     private func run() {
         guard let url = model.files.first else { return }
-        model.isRunning = true; model.error = nil; text = ""
+        model.isRunning = true; model.error = nil; text = ""; pdfResult = nil
+        let mode = output
+        let dir = model.outputDir
         Task.detached(priority: .userInitiated) {
             do {
-                let result: String
-                if url.conformsTo(.pdf) {
-                    result = try OCRService.recognizePDF(url)
-                } else {
-                    result = try OCRService.recognizeImageFile(url)
+                switch mode {
+                case .text:
+                    let result = url.conformsTo(.pdf)
+                        ? try OCRService.recognizePDF(url)
+                        : try OCRService.recognizeImageFile(url)
+                    await MainActor.run { text = result; model.isRunning = false }
+                case .searchablePDF:
+                    let out = OutputPath.make(for: url, dir: dir, suffix: "-searchable", ext: "pdf")
+                    try OCRService.makeSearchablePDF(url, to: out)
+                    await MainActor.run { pdfResult = out; model.isRunning = false }
                 }
-                await MainActor.run { text = result; model.isRunning = false }
             } catch {
                 await MainActor.run { model.error = error.localizedDescription; model.isRunning = false }
             }
