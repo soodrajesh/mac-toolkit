@@ -3,6 +3,8 @@
 Native macOS PDF & image toolkit. Pure Swift + SwiftUI, no Xcode, zero third-party
 dependencies. Offline and private — nothing leaves your Mac.
 
+![Toolbox screenshot](docs/screenshot.png)
+
 ## Prerequisites
 
 - **macOS 13+** and the **Swift toolchain** (`swift --version`) — required to build.
