@@ -50,7 +50,10 @@ struct ImageEditView: View {
                     HStack(spacing: 14) {
                         label("rectangle", "\(working.width) × \(working.height) px")
                         if let sel = selectionPx {
-                            label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px").foregroundStyle(.primary)
+                            let wp = Int((sel.width / CGFloat(working.width) * 100).rounded())
+                            let hp = Int((sel.height / CGFloat(working.height) * 100).rounded())
+                            label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px  (\(wp)% × \(hp)%)")
+                                .foregroundStyle(.primary)
                         }
                         Spacer()
                         if let src = model.files.first { label("doc", "Source \(src.fileSize.humanBytes)") }
