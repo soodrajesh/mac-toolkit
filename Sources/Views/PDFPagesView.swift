@@ -15,6 +15,7 @@ struct PDFPagesView: View {
         case delete = "Delete pages"
         case extract = "Extract pages"
         case toImages = "PDF → Images"
+        case extractImages = "Extract embedded images"
         case fromImages = "Images → PDF"
         var id: String { rawValue }
     }
@@ -49,6 +50,9 @@ struct PDFPagesView: View {
                     Picker("Format", selection: $imgFormat) {
                         Text("PNG").tag(ImageService.Format.png); Text("JPEG").tag(ImageService.Format.jpeg)
                     }.pickerStyle(.segmented).frame(width: 200)
+                case .extractImages:
+                    Text("Pulls out the original embedded images (JPEG/JP2) — not a page render.")
+                        .font(.caption).foregroundStyle(.secondary)
                 case .fromImages:
                     Text("Add image files above; they become one PDF (in listed order).")
                         .font(.caption).foregroundStyle(.secondary)
@@ -61,6 +65,7 @@ struct PDFPagesView: View {
         switch op {
         case .rotate: return "Rotate"; case .delete: return "Delete"
         case .extract: return "Extract"; case .toImages: return "Export Images"
+        case .extractImages: return "Extract Images"
         case .fromImages: return "Build PDF"
         }
     }
@@ -103,6 +108,10 @@ struct PDFPagesView: View {
                             let outs = try PDFService.toImages(url, dpi: d, format: fmt, quality: q, dir: dir)
                             r.outputs.append(contentsOf: outs)
                             r.messages.append("\(url.lastPathComponent): \(outs.count) images")
+                        case .extractImages:
+                            let outs = try PDFService.extractImages(url, dir: dir)
+                            r.outputs.append(contentsOf: outs)
+                            r.messages.append("\(url.lastPathComponent): \(outs.count) embedded images")
                         case .fromImages: break
                         }
                     } catch {

@@ -46,6 +46,7 @@ struct ToolboxApp: App {
         case .pdfSplit:    PDFSplitView()
         case .pdfPages:    PDFPagesView()
         case .pdfSecurity: PDFSecurityView()
+        case .pdfSign:     PDFSignView()
         case .pdfNumbers:  PDFPageNumbersView()
         case .pdfMeta:     PDFMetadataView()
         case .imageTools:  ImageToolsView()

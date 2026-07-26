@@ -126,6 +126,97 @@ enum PDFService {
         return r
     }
 
+    // MARK: Extract embedded images
+
+    private final class ImageStreams { var list: [CGPDFStreamRef] = [] }
+
+    /// Extracts embedded image streams (JPEG/JP2) from a PDF, saved as files.
+    static func extractImages(_ url: URL, dir: URL?) throws -> [URL] {
+        guard let doc = CGPDFDocument(url as CFURL) else { throw JobError.cannotOpen(url) }
+        let collector = ImageStreams()
+        let info = Unmanaged.passUnretained(collector).toOpaque()
+
+        for i in 1...max(doc.numberOfPages, 1) {
+            guard let page = doc.page(at: i), let dict = page.dictionary else { continue }
+            var resources: CGPDFDictionaryRef?
+            guard CGPDFDictionaryGetDictionary(dict, "Resources", &resources), let resources else { continue }
+            var xobjects: CGPDFDictionaryRef?
+            guard CGPDFDictionaryGetDictionary(resources, "XObject", &xobjects), let xobjects else { continue }
+
+            CGPDFDictionaryApplyFunction(xobjects, { _, object, info in
+                guard let info else { return }
+                let coll = Unmanaged<ImageStreams>.fromOpaque(info).takeUnretainedValue()
+                var stream: CGPDFStreamRef?
+                guard CGPDFObjectGetValue(object, .stream, &stream), let stream,
+                      let sdict = CGPDFStreamGetDictionary(stream) else { return }
+                var subtype: UnsafePointer<CChar>?
+                guard CGPDFDictionaryGetName(sdict, "Subtype", &subtype), let subtype,
+                      String(cString: subtype) == "Image" else { return }
+                coll.list.append(stream)
+            }, info)
+        }
+
+        var outputs: [URL] = []
+        var idx = 1
+        for stream in collector.list {
+            if let out = saveImageStream(stream, url: url, dir: dir, index: idx) {
+                outputs.append(out); idx += 1
+            }
+        }
+        guard !outputs.isEmpty else { throw JobError.failed("No extractable images found") }
+        return outputs
+    }
+
+    private static func saveImageStream(_ stream: CGPDFStreamRef, url: URL, dir: URL?, index: Int) -> URL? {
+        var format: CGPDFDataFormat = .raw
+        guard let cfData = CGPDFStreamCopyData(stream, &format) else { return nil }
+        let data = cfData as Data
+        switch format {
+        case .jpegEncoded, .JPEG2000:
+            let ext = format == .JPEG2000 ? "jp2" : "jpg"
+            guard CGImageSourceCreateWithData(data as CFData, nil) != nil else { return nil }
+            let out = OutputPath.make(for: url, dir: dir, suffix: "-img\(index)", ext: ext)
+            return (try? data.write(to: out)) != nil ? out : nil
+        default:
+            guard let cg = buildRawImage(stream: stream, data: data) else { return nil }
+            let out = OutputPath.make(for: url, dir: dir, suffix: "-img\(index)", ext: "png")
+            return (try? ImageService.write(cg, to: out, format: .png, quality: 1)) != nil ? out : nil
+        }
+    }
+
+    /// Reconstructs a CGImage from raw (already-decoded, e.g. Flate) pixel samples.
+    private static func buildRawImage(stream: CGPDFStreamRef, data: Data) -> CGImage? {
+        guard let dict = CGPDFStreamGetDictionary(stream) else { return nil }
+        var w = 0, h = 0, bpc = 8
+        CGPDFDictionaryGetInteger(dict, "Width", &w)
+        CGPDFDictionaryGetInteger(dict, "Height", &h)
+        CGPDFDictionaryGetInteger(dict, "BitsPerComponent", &bpc)
+        guard w > 0, h > 0, bpc == 8 else { return nil }   // handle 8-bit samples
+        let comp = data.count / (w * h)
+        let space: CGColorSpace
+        switch comp {
+        case 1: space = CGColorSpaceCreateDeviceGray()
+        case 3: space = CGColorSpaceCreateDeviceRGB()
+        case 4: space = CGColorSpaceCreateDeviceCMYK()
+        default: return nil
+        }
+        let bytesPerRow = w * comp
+        guard data.count >= bytesPerRow * h, let provider = CGDataProvider(data: data as CFData) else { return nil }
+        guard let cg = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: comp * 8,
+                               bytesPerRow: bytesPerRow, space: space,
+                               bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                               provider: provider, decode: nil, shouldInterpolate: false,
+                               intent: .defaultIntent) else { return nil }
+        if comp == 4 {   // CMYK → RGB for portability
+            guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return cg }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return ctx.makeImage() ?? cg
+        }
+        return cg
+    }
+
     // MARK: PDF <-> images
 
     /// Renders each page to a PNG/JPEG at `dpi`. Returns output URLs.
