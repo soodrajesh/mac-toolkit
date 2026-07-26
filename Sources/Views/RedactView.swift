@@ -6,7 +6,8 @@ struct RedactView: View {
     @State private var isPDF = false
     @State private var pageIndex = 0
     @State private var pageCount = 1
-    @State private var pageImage: NSImage?
+    @State private var baseCG: CGImage?          // unredacted current page/image
+    @State private var displayImage: NSImage?    // live preview (black boxes composited)
     @State private var rectsByPage: [Int: [CGRect]] = [:]
     @State private var saved: URL?
 
@@ -27,7 +28,7 @@ struct RedactView: View {
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
 
-                if let pageImage {
+                if let displayImage {
                     if isPDF && pageCount > 1 {
                         HStack {
                             Button { step(-1) } label: { Image(systemName: "chevron.left") }.disabled(pageIndex == 0)
@@ -38,10 +39,14 @@ struct RedactView: View {
                         }
                     }
 
-                    RegionSelector(image: pageImage, rects: currentRects)
+                    RegionSelector(image: displayImage, rects: currentRects)
                         .frame(height: 380)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
+                        .onChange(of: rectsByPage) { _ in updatePreview() }
+
+                    Text("Live preview — black areas are what gets permanently removed.")
+                        .font(.caption).foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
                         Button("Apply Redaction") { apply() }
@@ -71,21 +76,31 @@ struct RedactView: View {
 
     private func load() {
         rectsByPage = [:]; pageIndex = 0; saved = nil; model.error = nil
-        guard let url = model.files.first else { pageImage = nil; return }
+        guard let url = model.files.first else { baseCG = nil; displayImage = nil; return }
         isPDF = url.conformsTo(.pdf)
         if isPDF {
             pageCount = max(1, PDFService.pageCount(url))
-            pageImage = PDFService.renderPageImage(url, page: 0)
+            baseCG = PDFService.renderPageCGImage(url, page: 0)
         } else {
             pageCount = 1
-            pageImage = NSImage(contentsOf: url)
+            baseCG = try? ImageService.loadCGImage(url)
         }
+        updatePreview()
     }
 
     private func step(_ d: Int) {
         guard let url = model.files.first else { return }
         pageIndex = min(max(0, pageIndex + d), pageCount - 1)
-        pageImage = PDFService.renderPageImage(url, page: pageIndex)
+        baseCG = PDFService.renderPageCGImage(url, page: pageIndex)
+        updatePreview()
+    }
+
+    /// Composites the current page's black redaction boxes onto the base image.
+    private func updatePreview() {
+        guard let base = baseCG else { displayImage = nil; return }
+        let rects = rectsByPage[pageIndex] ?? []
+        let cg = rects.isEmpty ? base : (ImageEditService.redact(base, rects: rects) ?? base)
+        displayImage = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
     private func apply() {

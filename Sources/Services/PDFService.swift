@@ -215,8 +215,8 @@ enum PDFService {
 
     // MARK: Redaction
 
-    /// Renders a single page to an NSImage (for on-screen region selection).
-    static func renderPageImage(_ url: URL, page p: Int, dpi: Double = 150) -> NSImage? {
+    /// Renders a single page to a CGImage (for on-screen region selection / preview).
+    static func renderPageCGImage(_ url: URL, page p: Int, dpi: Double = 150) -> CGImage? {
         guard let doc = PDFDocument(url: url), let page = doc.page(at: p) else { return nil }
         let bounds = page.bounds(for: .mediaBox)
         let scale = dpi / 72.0
@@ -230,8 +230,12 @@ enum PDFService {
         ctx.scaleBy(x: scale, y: scale)
         ctx.translateBy(x: -bounds.origin.x, y: -bounds.origin.y)
         page.draw(with: .mediaBox, to: ctx)
-        guard let cg = ctx.makeImage() else { return nil }
-        return NSImage(cgImage: cg, size: bounds.size)
+        return ctx.makeImage()
+    }
+
+    static func renderPageImage(_ url: URL, page p: Int, dpi: Double = 150) -> NSImage? {
+        guard let cg = renderPageCGImage(url, page: p, dpi: dpi) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
     static func pageCount(_ url: URL) -> Int { PDFDocument(url: url)?.pageCount ?? 0 }
