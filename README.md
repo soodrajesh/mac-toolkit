@@ -28,8 +28,6 @@ Downloader tool (downloads videos from the web as requested).
 
   Both are required; the app auto-detects them and shows a hint if missing. yt-dlp
   supports 1000+ video sites (YouTube, TikTok, Instagram, Twitter/X, Twitch, Reddit, etc.).
-- **logo.jpg** in the project root — the build turns it into the app icon
-  (optional; skipped if absent).
 
 ## Build & run
 
@@ -37,7 +35,7 @@ Downloader tool (downloads videos from the web as requested).
 ./build.sh
 ```
 
-`build.sh` compiles the sources, generates the app icon from `logo.jpg`, bundles
+`build.sh` compiles the sources, renders the app icon from an SF Symbol, bundles
 `Toolbox.app`, and installs it to `/Applications`. Launch it from Launchpad /
 Spotlight, or:
 
@@ -111,7 +109,9 @@ Sources/
 ```
 
 Shared UX: numbered drag/arrow-reorderable file lists, right-side or in-place live
-previews on image tools, and a remembered output folder (persisted across launches).
+previews on image tools, a remembered output folder (persisted across launches),
+and collapsible sidebar sections (click a section header to expand/collapse;
+remembered across launches).
 
 ## Ideas for later
 
