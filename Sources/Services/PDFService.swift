@@ -213,6 +213,63 @@ enum PDFService {
         guard out.write(to: output) else { throw JobError.cannotWrite(output) }
     }
 
+    // MARK: Redaction
+
+    /// Renders a single page to an NSImage (for on-screen region selection).
+    static func renderPageImage(_ url: URL, page p: Int, dpi: Double = 150) -> NSImage? {
+        guard let doc = PDFDocument(url: url), let page = doc.page(at: p) else { return nil }
+        let bounds = page.bounds(for: .mediaBox)
+        let scale = dpi / 72.0
+        let w = Int((bounds.width * scale).rounded()), h = Int((bounds.height * scale).rounded())
+        guard w > 0, h > 0,
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue) else { return nil }
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: -bounds.origin.x, y: -bounds.origin.y)
+        page.draw(with: .mediaBox, to: ctx)
+        guard let cg = ctx.makeImage() else { return nil }
+        return NSImage(cgImage: cg, size: bounds.size)
+    }
+
+    static func pageCount(_ url: URL) -> Int { PDFDocument(url: url)?.pageCount ?? 0 }
+
+    /// Permanently redacts: pages with rects are rasterized with black boxes painted
+    /// (underlying text/content destroyed); other pages are copied as-is.
+    /// Rects are normalized (0…1, top-left) per page index.
+    static func redact(_ url: URL, rectsByPage: [Int: [CGRect]], to output: URL, dpi: Double = 200) throws {
+        let doc = try open(url)
+        let out = PDFDocument()
+        var idx = 0
+        for p in 0..<doc.pageCount {
+            guard let page = doc.page(at: p) else { continue }
+            let rects = rectsByPage[p] ?? []
+            if rects.isEmpty { out.insert(page, at: idx); idx += 1; continue }
+
+            let bounds = page.bounds(for: .mediaBox)
+            let scale = dpi / 72.0
+            let w = Int((bounds.width * scale).rounded()), h = Int((bounds.height * scale).rounded())
+            guard w > 0, h > 0,
+                  let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue) else { continue }
+            ctx.setFillColor(NSColor.white.cgColor)
+            ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            ctx.scaleBy(x: scale, y: scale)
+            ctx.translateBy(x: -bounds.origin.x, y: -bounds.origin.y)
+            page.draw(with: .mediaBox, to: ctx)
+            guard let cg = ctx.makeImage(),
+                  let redacted = ImageEditService.redact(cg, rects: rects) else { continue }
+            let nsImage = NSImage(cgImage: redacted, size: bounds.size)
+            guard let newPage = PDFPage(image: nsImage) else { continue }
+            newPage.setBounds(bounds, for: .mediaBox)
+            out.insert(newPage, at: idx); idx += 1
+        }
+        guard idx > 0, out.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
     // MARK: Security
 
     /// Adds a password. Both user (open) and owner (permissions) passwords set.

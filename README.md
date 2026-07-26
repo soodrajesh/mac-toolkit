@@ -55,6 +55,12 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **PDF Security** — add/remove password, diagonal watermark.
 - **Image Tools** — compress/convert PNG/JPEG/HEIC/TIFF (incl. HEIC → JPEG),
   resize, EXIF/GPS always stripped.
+- **Image Editor** — crop (draw on the image), rotate, flip, and resize presets
+  (avatar, Instagram, LinkedIn banner, HD/4K).
+- **Blur / Pixelate** — drag over regions to hide faces/addresses/numbers.
+- **Redact** — permanently black out regions in a PDF or image (content underneath
+  is destroyed, not just covered). Multi-page PDF support.
+- **Collage** — combine images into a grid or horizontal/vertical strip.
 - **Icon Generator** — image → favicon.ico + full PNG set (16–1024) + AppIcon.icns.
 - **Remove Background** — one-click subject cutout to transparent PNG (Vision, macOS 14+).
 - **QR Code** — generate from text/URL (save PNG) and read/decode from images.

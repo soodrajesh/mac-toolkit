@@ -8,6 +8,10 @@ enum Tool: String, CaseIterable, Identifiable {
     case pdfPages    = "PDF Pages"
     case pdfSecurity = "PDF Security"
     case imageTools  = "Image Tools"
+    case imageEdit   = "Image Editor"
+    case blur        = "Blur / Pixelate"
+    case redact      = "Redact"
+    case collage     = "Collage"
     case iconGen     = "Icon Generator"
     case removeBG    = "Remove Background"
     case qr          = "QR Code"
@@ -23,6 +27,10 @@ enum Tool: String, CaseIterable, Identifiable {
         case .pdfPages:    return "doc.on.doc"
         case .pdfSecurity: return "lock.doc"
         case .imageTools:  return "photo"
+        case .imageEdit:   return "crop.rotate"
+        case .blur:        return "eye.slash"
+        case .redact:      return "rectangle.fill.badge.xmark"
+        case .collage:     return "square.grid.2x2"
         case .iconGen:     return "app.badge"
         case .removeBG:    return "wand.and.stars"
         case .qr:          return "qrcode"
@@ -33,7 +41,7 @@ enum Tool: String, CaseIterable, Identifiable {
     var section: String {
         switch self {
         case .pdfCompress, .pdfMerge, .pdfSplit, .pdfPages, .pdfSecurity: return "PDF"
-        case .imageTools, .iconGen, .removeBG: return "Images"
+        case .imageTools, .imageEdit, .blur, .redact, .collage, .iconGen, .removeBG: return "Images"
         case .qr:  return "Utilities"
         case .ocr: return "Recognition"
         }
