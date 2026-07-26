@@ -11,19 +11,20 @@ struct ToolScaffold<Options: View, Preview: View>: View {
     @ObservedObject var model: JobModel
     let runLabel: String
     let onRun: () -> Void
+    let previewVisible: Bool
     @ViewBuilder var preview: () -> Preview
     @ViewBuilder var options: () -> Options
 
     init(title: String, subtitle: String, model: JobModel, runLabel: String,
-         onRun: @escaping () -> Void,
+         onRun: @escaping () -> Void, previewVisible: Bool = true,
          @ViewBuilder preview: @escaping () -> Preview = { EmptyView() },
          @ViewBuilder options: @escaping () -> Options) {
         self.title = title; self.subtitle = subtitle; self.model = model
-        self.runLabel = runLabel; self.onRun = onRun
+        self.runLabel = runLabel; self.onRun = onRun; self.previewVisible = previewVisible
         self.preview = preview; self.options = options
     }
 
-    private var hasPreview: Bool { Preview.self != EmptyView.self }
+    private var hasPreview: Bool { Preview.self != EmptyView.self && previewVisible }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {

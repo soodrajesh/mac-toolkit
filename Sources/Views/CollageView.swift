@@ -16,6 +16,7 @@ struct CollageView: View {
     @State private var selected: UUID?
     @State private var aspect: CanvasAspect = .fourThree
     @State private var moveBaseline: CGPoint?
+    @State private var availWidth: CGFloat = 700
     private let space = "collageCanvas"
 
     struct Placed: Identifiable {
@@ -43,6 +44,7 @@ struct CollageView: View {
             model: model,
             runLabel: isFreeform ? "Export PNG" : "Create Collage",
             onRun: run,
+            previewVisible: !isFreeform,
             preview: { previewPane }
         ) {
             VStack(alignment: .leading, spacing: 10) {
@@ -53,6 +55,8 @@ struct CollageView: View {
 
                 if isFreeform {
                     freeformControls
+                    widthReader
+                    freeformCanvas
                 } else {
                     gridControls
                 }
@@ -100,31 +104,43 @@ struct CollageView: View {
 
     // MARK: Preview / canvas
 
-    @ViewBuilder
     private var previewPane: some View {
-        if isFreeform {
-            VStack { freeformCanvas; Spacer() }
-        } else {
-            VStack {
-                ImagePreview(image: previewImage,
-                             caption: model.files.isEmpty ? "Add images to preview" : "Live collage preview")
-                Spacer()
-            }
+        VStack {
+            ImagePreview(image: previewImage,
+                         caption: model.files.isEmpty ? "Add images to preview" : "Live collage preview")
+            Spacer()
         }
     }
 
-    private var freeformCanvas: some View {
-        let dW: CGFloat = 330
-        let dH = dW / aspect.ratio
-        return ZStack {
-            Rectangle().fill(white ? Color.white : Color.black)
-            ForEach($items) { $it in itemLayer($it, dW: dW, dH: dH) }
+    /// Zero-height probe that reports the available content width.
+    private var widthReader: some View {
+        GeometryReader { g in
+            Color.clear
+                .onAppear { availWidth = g.size.width }
+                .onChange(of: g.size.width) { availWidth = $0 }
         }
-        .frame(width: dW, height: dH)
-        .coordinateSpace(name: space)
-        .overlay(Rectangle().strokeBorder(.gray.opacity(0.35)))
-        .contentShape(Rectangle())
-        .onTapGesture { selected = nil }
+        .frame(height: 0)
+    }
+
+    private var freeformCanvas: some View {
+        var dW = max(320, min(availWidth, 1000))
+        var dH = dW / aspect.ratio
+        let capH: CGFloat = 640
+        if dH > capH { dH = capH; dW = dH * aspect.ratio }
+        return HStack {
+            Spacer(minLength: 0)
+            ZStack {
+                Rectangle().fill(white ? Color.white : Color.black)
+                ForEach($items) { $it in itemLayer($it, dW: dW, dH: dH) }
+            }
+            .frame(width: dW, height: dH)
+            .coordinateSpace(name: space)
+            .overlay(Rectangle().strokeBorder(.gray.opacity(0.35)))
+            .contentShape(Rectangle())
+            .onTapGesture { selected = nil }
+            Spacer(minLength: 0)
+        }
+        .frame(height: dH + 8)
     }
 
     @ViewBuilder
