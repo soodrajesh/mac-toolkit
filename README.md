@@ -53,6 +53,7 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **Split PDF** — one file per page, or by page ranges (`1-3, 5, 8-10`).
 - **PDF Pages** — rotate, delete, extract pages; PDF → images; images → PDF.
 - **PDF Security** — add/remove password, diagonal watermark.
+- **Page Numbers** — stamp page numbers/labels (`{n}`, `{total}`) at any corner/edge.
 - **Convert & Compress** — *batch*: many images at once → change format (incl.
   HEIC → JPEG), compress by quality, cap max size, EXIF/GPS always stripped.
 - **Image Editor** — *single image*: crop with draggable handles, rotate, flip,

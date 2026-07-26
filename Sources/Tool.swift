@@ -7,6 +7,7 @@ enum Tool: String, CaseIterable, Identifiable {
     case pdfSplit    = "Split PDF"
     case pdfPages    = "PDF Pages"
     case pdfSecurity = "PDF Security"
+    case pdfNumbers  = "Page Numbers"
     case imageTools  = "Convert & Compress"
     case imageEdit   = "Image Editor"
     case blur        = "Blur / Pixelate"
@@ -26,6 +27,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .pdfSplit:    return "scissors"
         case .pdfPages:    return "doc.on.doc"
         case .pdfSecurity: return "lock.doc"
+        case .pdfNumbers:  return "list.number"
         case .imageTools:  return "photo"
         case .imageEdit:   return "crop.rotate"
         case .blur:        return "eye.slash"
@@ -40,7 +42,7 @@ enum Tool: String, CaseIterable, Identifiable {
 
     var section: String {
         switch self {
-        case .pdfCompress, .pdfMerge, .pdfSplit, .pdfPages, .pdfSecurity: return "PDF"
+        case .pdfCompress, .pdfMerge, .pdfSplit, .pdfPages, .pdfSecurity, .pdfNumbers: return "PDF"
         case .imageTools, .imageEdit, .blur, .redact, .collage, .iconGen, .removeBG: return "Images"
         case .qr:  return "Utilities"
         case .ocr: return "Recognition"

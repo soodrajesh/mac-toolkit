@@ -5,8 +5,15 @@ import UniformTypeIdentifiers
 /// Uses ObservableObject (not @Observable) to keep the macOS 13 deployment target.
 @MainActor
 final class JobModel: ObservableObject {
+    private static let outputKey = "lastOutputDir"
+
     @Published var files: [URL] = []
-    @Published var outputDir: URL?          // nil = alongside source
+    @Published var outputDir: URL? {        // nil = alongside source
+        didSet {
+            if let p = outputDir?.path { UserDefaults.standard.set(p, forKey: Self.outputKey) }
+            else { UserDefaults.standard.removeObject(forKey: Self.outputKey) }
+        }
+    }
     @Published var isRunning = false
     @Published var progress = 0.0           // 0…1
     @Published var status = ""
@@ -19,6 +26,12 @@ final class JobModel: ObservableObject {
     init(types: [UTType], multiple: Bool = true) {
         self.allowedTypes = types
         self.allowsMultiple = multiple
+        if let p = UserDefaults.standard.string(forKey: Self.outputKey) {
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: p, isDirectory: &isDir), isDir.boolValue {
+                outputDir = URL(fileURLWithPath: p, isDirectory: true)
+            }
+        }
     }
 
     func add(_ urls: [URL]) {

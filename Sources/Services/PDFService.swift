@@ -293,6 +293,29 @@ enum PDFService {
         guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
     }
 
+    enum StampPosition: String, CaseIterable, Identifiable {
+        case bottomCenter = "Bottom center", bottomRight = "Bottom right", bottomLeft = "Bottom left"
+        case topCenter = "Top center", topRight = "Top right", topLeft = "Top left"
+        var id: String { rawValue }
+    }
+
+    /// Stamps a page number / label on every page. `format` supports {n} and {total}.
+    static func addPageNumbers(_ url: URL, format: String, position: StampPosition,
+                              startAt: Int, fontSize: CGFloat, to output: URL) throws {
+        let doc = try open(url)
+        let total = doc.pageCount
+        for p in 0..<total {
+            guard let page = doc.page(at: p) else { continue }
+            let text = format
+                .replacingOccurrences(of: "{n}", with: "\(startAt + p)")
+                .replacingOccurrences(of: "{total}", with: "\(total)")
+            let annot = TextStampAnnotation(bounds: page.bounds(for: .mediaBox),
+                                            text: text, position: position, fontSize: fontSize)
+            page.addAnnotation(annot)
+        }
+        guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
     /// Stamps diagonal text across every page.
     static func watermark(_ url: URL, text: String, opacity: Double, to output: URL) throws {
         let doc = try open(url)
@@ -303,6 +326,48 @@ enum PDFService {
             page.addAnnotation(annot)
         }
         guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+}
+
+/// A PDF annotation that draws a short text label at a page corner/edge.
+final class TextStampAnnotation: PDFAnnotation {
+    private let text: String
+    private let position: PDFService.StampPosition
+    private let fontSize: CGFloat
+
+    init(bounds: CGRect, text: String, position: PDFService.StampPosition, fontSize: CGFloat) {
+        self.text = text; self.position = position; self.fontSize = fontSize
+        super.init(bounds: bounds, forType: .stamp, withProperties: nil)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    override func draw(with box: PDFDisplayBox, in context: CGContext) {
+        let rect = bounds
+        let margin: CGFloat = 24
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: fontSize),
+            .foregroundColor: NSColor.black,
+        ]
+        let str = NSAttributedString(string: text, attributes: attrs)
+        let size = str.size()
+
+        let x: CGFloat
+        switch position {
+        case .bottomLeft, .topLeft: x = margin
+        case .bottomRight, .topRight: x = rect.width - size.width - margin
+        case .bottomCenter, .topCenter: x = (rect.width - size.width) / 2
+        }
+        let y: CGFloat
+        switch position {
+        case .bottomLeft, .bottomRight, .bottomCenter: y = margin
+        case .topLeft, .topRight, .topCenter: y = rect.height - size.height - margin
+        }
+
+        let nsCtx = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsCtx
+        str.draw(at: CGPoint(x: x, y: y))
+        NSGraphicsContext.restoreGraphicsState()
     }
 }
 

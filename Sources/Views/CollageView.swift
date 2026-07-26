@@ -27,6 +27,7 @@ struct CollageView: View {
         var isText: Bool
         var center: CGPoint
         var rotation: CGFloat = 0
+        var opacity: Double = 1
         // image
         var url: URL?
         var ns: NSImage?
@@ -67,7 +68,14 @@ struct CollageView: View {
 
                 if isFreeform {
                     freeformControls
-                    if let idx = selectedIndex, items[idx].isText { textEditor(idx) }
+                    if let idx = selectedIndex {
+                        HStack {
+                            Text("Opacity").foregroundStyle(.secondary)
+                            Slider(value: $items[idx].opacity, in: 0.1...1).frame(width: 200)
+                            Text("\(Int(items[idx].opacity * 100))%").font(.caption.monospacedDigit())
+                        }
+                        if items[idx].isText { textEditor(idx) }
+                    }
                     widthReader
                     freeformCanvas
                 } else {
@@ -195,6 +203,7 @@ struct CollageView: View {
                 Image(nsImage: ns).resizable().frame(width: sz.width, height: sz.height)
             }
         }
+        .opacity(el.opacity)
         .overlay(isSel ? Rectangle().strokeBorder(Color.accentColor, lineWidth: 2) : nil)
         .rotationEffect(.radians(Double(el.rotation)))
         .position(c)
@@ -331,7 +340,8 @@ struct CollageView: View {
                         color: NSColor(el.color), bold: el.bold, italic: el.italic)
                 : .image(el.cg!, aspect: el.aspect)
             return FreeformService.Item(content: content, center: el.center,
-                                        widthFrac: el.widthFrac, rotation: el.rotation)
+                                        widthFrac: el.widthFrac, rotation: el.rotation,
+                                        opacity: CGFloat(el.opacity))
         }
         guard !fitems.isEmpty else { model.error = "Add images or text first"; return }
         guard let img = FreeformService.render(fitems, canvasW: canvasW, canvasH: canvasH,

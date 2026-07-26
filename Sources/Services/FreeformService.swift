@@ -15,6 +15,7 @@ enum FreeformService {
         var center: CGPoint    // normalized 0…1, top-left origin
         var widthFrac: CGFloat // image width as a fraction of canvas width (ignored for text)
         var rotation: CGFloat  // radians, clockwise (screen convention)
+        var opacity: CGFloat = 1
     }
 
     static func render(_ items: [Item], canvasW: Int, canvasH: Int, bg: NSColor) -> CGImage? {
@@ -30,6 +31,7 @@ enum FreeformService {
             let cx = it.center.x * CGFloat(canvasW)
             let cy = CGFloat(canvasH) - it.center.y * CGFloat(canvasH)  // flip to bottom-left origin
             ctx.saveGState()
+            ctx.setAlpha(it.opacity)
             ctx.translateBy(x: cx, y: cy)
             ctx.rotate(by: -it.rotation)
 
