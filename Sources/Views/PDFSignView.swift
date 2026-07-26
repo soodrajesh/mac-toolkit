@@ -17,62 +17,102 @@ struct PDFSignView: View {
     @State private var inkColor: Color = .blue
 
     enum Mode: String, CaseIterable, Identifiable { case draw = "Draw", type = "Type"; var id: String { rawValue } }
-    private let padSize = CGSize(width: 440, height: 150)
+    private let padSize = CGSize(width: 400, height: 150)
+    @State private var zoom: CGFloat = 1
+    @State private var lastZoom: CGFloat = 1
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Sign PDF").font(.title2).bold()
-                    Text("Draw or type a signature, then drag a box on the page to place it.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-
-                DropWell(model: model)
-                if !model.files.isEmpty { FileList(model: model) }
-
-                if let displayImage {
-                    if pageCount > 1 {
-                        HStack {
-                            Button { step(-1) } label: { Image(systemName: "chevron.left") }.disabled(pageIndex == 0)
-                            Text("Page \(pageIndex + 1) of \(pageCount)")
-                            Button { step(1) } label: { Image(systemName: "chevron.right") }.disabled(pageIndex >= pageCount - 1)
-                            Spacer()
-                        }
+        HStack(alignment: .top, spacing: 0) {
+            // LEFT — controls
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sign PDF").font(.title2).bold()
+                        Text("Draw or type a signature, then drag a box on the page to place it.")
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    RegionSelector(image: displayImage, rects: $placeRect, singleSelection: true)
-                        .frame(height: 560)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
-                        .onChange(of: placeRect) { _ in updatePreview() }
-                    Text(placeRect.isEmpty ? "Drag a box where the signature should go — you'll see it there before saving."
-                                           : "Preview shown in the box. Adjust the box or signature, then Apply.")
-                        .font(.caption).foregroundStyle(.secondary)
+                    DropWell(model: model)
+                    if !model.files.isEmpty { FileList(model: model) }
 
-                    signaturePanel
-                        .onChange(of: strokes) { _ in updatePreview() }
-                        .onChange(of: typed) { _ in updatePreview() }
-                        .onChange(of: scriptFont) { _ in updatePreview() }
-                        .onChange(of: inkColor) { _ in updatePreview() }
-                        .onChange(of: mode) { _ in updatePreview() }
+                    if displayImage != nil {
+                        signaturePanel
+                            .onChange(of: strokes) { _ in updatePreview() }
+                            .onChange(of: typed) { _ in updatePreview() }
+                            .onChange(of: scriptFont) { _ in updatePreview() }
+                            .onChange(of: inkColor) { _ in updatePreview() }
+                            .onChange(of: mode) { _ in updatePreview() }
 
-                    HStack(spacing: 10) {
-                        Button("Apply Signature") { apply() }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(placeRect.isEmpty || !hasSignature)
-                        if let saved {
-                            Button { revealInFinder([saved]) } label: {
-                                Label("Signed — Reveal in Finder", systemImage: "checkmark.circle.fill")
-                            }.foregroundStyle(.green)
+                        HStack(spacing: 10) {
+                            Button("Apply Signature") { apply() }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(placeRect.isEmpty || !hasSignature)
+                            if let saved {
+                                Button { revealInFinder([saved]) } label: {
+                                    Label("Signed — Reveal in Finder", systemImage: "checkmark.circle.fill")
+                                }.foregroundStyle(.green)
+                            }
                         }
+                        if let error = model.error { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red) }
                     }
-                    if let error = model.error { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red) }
                 }
+                .padding(20)
             }
-            .padding(20)
+            .frame(width: 470)
+
+            Divider()
+
+            // RIGHT — zoomable page preview
+            if let displayImage {
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        if pageCount > 1 {
+                            Button { step(-1) } label: { Image(systemName: "chevron.left") }.disabled(pageIndex == 0)
+                            Text("Page \(pageIndex + 1) / \(pageCount)").font(.callout)
+                            Button { step(1) } label: { Image(systemName: "chevron.right") }.disabled(pageIndex >= pageCount - 1)
+                            Divider().frame(height: 16)
+                        }
+                        Button { setZoom(zoom - 0.25) } label: { Image(systemName: "minus.magnifyingglass") }
+                        Text("\(Int(zoom * 100))%").font(.caption.monospacedDigit()).frame(width: 44)
+                        Button { setZoom(zoom + 0.25) } label: { Image(systemName: "plus.magnifyingglass") }
+                        Button("Fit") { setZoom(1) }.disabled(zoom == 1)
+                        Spacer()
+                        Text(placeRect.isEmpty ? "Drag a box to place the signature" : "Pinch/scroll to zoom for precision")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    zoomablePage(displayImage)
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack { Spacer(); Text("Drop a PDF to begin").foregroundStyle(.secondary); Spacer() }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
-        .onChange(of: model.files) { _ in load() }
+        .onChange(of: model.files) { _ in zoom = 1; lastZoom = 1; load() }
     }
+
+    private func zoomablePage(_ image: NSImage) -> some View {
+        GeometryReader { geo in
+            let pageAspect = image.size.height / max(1, image.size.width)
+            let dW = min(geo.size.width, geo.size.height / pageAspect)
+            let dH = dW * pageAspect
+            ScrollView([.horizontal, .vertical]) {
+                RegionSelector(image: image, rects: $placeRect, singleSelection: true)
+                    .frame(width: dW * zoom, height: dH * zoom)
+                    .onChange(of: placeRect) { _ in updatePreview() }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { v in zoom = min(5, max(1, lastZoom * v)) }
+                    .onEnded { _ in lastZoom = zoom }
+            )
+        }
+        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
+    }
+
+    private func setZoom(_ z: CGFloat) { zoom = min(5, max(1, z)); lastZoom = zoom }
 
     private var signaturePanel: some View {
         GroupBox {
