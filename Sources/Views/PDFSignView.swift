@@ -11,7 +11,6 @@ struct PDFSignView: View {
 
     @State private var mode: Mode = .draw
     @State private var strokes: [[CGPoint]] = []
-    @State private var current: [CGPoint] = []
     @State private var typed = "Rajesh Sood"
     @State private var scriptFont = "Snell Roundhand"
     @State private var inkColor: Color = .blue
@@ -41,7 +40,7 @@ struct PDFSignView: View {
                         }
                     }
                     RegionSelector(image: pageImage, rects: $placeRect, singleSelection: true)
-                        .frame(height: 360)
+                        .frame(height: 560)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
                     Text(placeRect.isEmpty ? "Drag a box where the signature should go." : "Signature area set — Apply below.")
@@ -76,11 +75,11 @@ struct PDFSignView: View {
                     ColorPicker("Ink", selection: $inkColor, supportsOpacity: false).fixedSize()
                 }
                 if mode == .draw {
-                    SignaturePad(strokes: $strokes, current: $current, color: inkColor)
+                    SignaturePad(strokes: $strokes, color: inkColor)
                         .frame(width: padSize.width, height: padSize.height)
                         .background(Color.white)
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.gray.opacity(0.4)))
-                    Button("Clear") { strokes = []; current = [] }.disabled(strokes.isEmpty && current.isEmpty)
+                    Button("Clear") { strokes = [] }.disabled(strokes.isEmpty)
                 } else {
                     TextField("Signature text", text: $typed).textFieldStyle(.roundedBorder).frame(width: 300)
                     Picker("Font", selection: $scriptFont) {
@@ -125,11 +124,12 @@ struct PDFSignView: View {
     }
 }
 
-/// A simple ink pad that records strokes as point arrays.
+/// A self-contained ink pad. The in-progress stroke lives locally so drawing only
+/// redraws the pad (not the parent view); completed strokes are pushed to `strokes`.
 struct SignaturePad: View {
     @Binding var strokes: [[CGPoint]]
-    @Binding var current: [CGPoint]
     var color: Color
+    @State private var current: [CGPoint] = []
 
     var body: some View {
         Canvas { ctx, _ in
@@ -137,7 +137,8 @@ struct SignaturePad: View {
                 guard let first = stroke.first else { continue }
                 var path = Path(); path.move(to: first)
                 for p in stroke.dropFirst() { path.addLine(to: p) }
-                ctx.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                ctx.stroke(path, with: .color(color),
+                           style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             }
         }
         .contentShape(Rectangle())
@@ -146,5 +147,6 @@ struct SignaturePad: View {
                 .onChanged { current.append($0.location) }
                 .onEnded { _ in if !current.isEmpty { strokes.append(current); current = [] } }
         )
+        .onChange(of: strokes) { new in if new.isEmpty { current = [] } }   // Clear resets pad
     }
 }
