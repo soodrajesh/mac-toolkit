@@ -84,12 +84,12 @@ enum ImageEditService {
         return ctx.makeImage()
     }
 
-    /// Paints solid black over normalized rects — pixels are destroyed (true redaction).
-    static func redact(_ cg: CGImage, rects: [CGRect]) -> CGImage? {
+    /// Paints solid `color` over normalized rects — pixels are destroyed (true redaction).
+    static func redact(_ cg: CGImage, rects: [CGRect], color: NSColor = .black) -> CGImage? {
         let w = cg.width, h = cg.height
         guard let ctx = context(w, h) else { return nil }
         ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-        ctx.setFillColor(NSColor.black.cgColor)
+        ctx.setFillColor((color.usingColorSpace(.deviceRGB) ?? color).cgColor)
         for r in rects { ctx.fill(pixelRect(r, w, h)) }
         return ctx.makeImage()
     }

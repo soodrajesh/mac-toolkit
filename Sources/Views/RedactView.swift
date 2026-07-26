@@ -10,6 +10,7 @@ struct RedactView: View {
     @State private var displayImage: NSImage?    // live preview (black boxes composited)
     @State private var rectsByPage: [Int: [CGRect]] = [:]
     @State private var saved: URL?
+    @State private var fillColor: Color = .black
 
     private var currentRects: Binding<[CGRect]> {
         Binding(get: { rectsByPage[pageIndex] ?? [] },
@@ -45,7 +46,19 @@ struct RedactView: View {
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
                         .onChange(of: rectsByPage) { _ in updatePreview() }
 
-                    Text("Live preview — black areas are what gets permanently removed.")
+                    HStack(spacing: 14) {
+                        ColorPicker("Fill color", selection: $fillColor, supportsOpacity: false)
+                            .fixedSize()
+                            .onChange(of: fillColor) { _ in updatePreview() }
+                        ForEach(Array([Color.black, .white, .gray].enumerated()), id: \.offset) { _, c in
+                            Button { fillColor = c } label: {
+                                Circle().fill(c).frame(width: 16, height: 16)
+                                    .overlay(Circle().strokeBorder(.gray.opacity(0.5)))
+                            }.buttonStyle(.plain)
+                        }
+                        Spacer()
+                    }
+                    Text("Live preview — the filled areas are what gets permanently removed.")
                         .font(.caption).foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
@@ -99,7 +112,7 @@ struct RedactView: View {
     private func updatePreview() {
         guard let base = baseCG else { displayImage = nil; return }
         let rects = rectsByPage[pageIndex] ?? []
-        let cg = rects.isEmpty ? base : (ImageEditService.redact(base, rects: rects) ?? base)
+        let cg = rects.isEmpty ? base : (ImageEditService.redact(base, rects: rects, color: NSColor(fillColor)) ?? base)
         displayImage = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
@@ -107,13 +120,14 @@ struct RedactView: View {
         guard let url = model.files.first else { return }
         model.error = nil; saved = nil
         do {
+            let nsColor = NSColor(fillColor)
             if isPDF {
                 let out = OutputPath.make(for: url, dir: model.outputDir, suffix: "-redacted", ext: "pdf")
-                try PDFService.redact(url, rectsByPage: rectsByPage, to: out)
+                try PDFService.redact(url, rectsByPage: rectsByPage, to: out, color: nsColor)
                 saved = out
             } else {
                 let cg = try ImageService.loadCGImage(url)
-                guard let out = ImageEditService.redact(cg, rects: rectsByPage[0] ?? []) else {
+                guard let out = ImageEditService.redact(cg, rects: rectsByPage[0] ?? [], color: nsColor) else {
                     throw JobError.failed("Could not redact")
                 }
                 let dst = OutputPath.make(for: url, dir: model.outputDir, suffix: "-redacted", ext: "png")

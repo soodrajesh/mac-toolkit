@@ -243,7 +243,8 @@ enum PDFService {
     /// Permanently redacts: pages with rects are rasterized with black boxes painted
     /// (underlying text/content destroyed); other pages are copied as-is.
     /// Rects are normalized (0…1, top-left) per page index.
-    static func redact(_ url: URL, rectsByPage: [Int: [CGRect]], to output: URL, dpi: Double = 200) throws {
+    static func redact(_ url: URL, rectsByPage: [Int: [CGRect]], to output: URL,
+                       color: NSColor = .black, dpi: Double = 200) throws {
         let doc = try open(url)
         let out = PDFDocument()
         var idx = 0
@@ -265,7 +266,7 @@ enum PDFService {
             ctx.translateBy(x: -bounds.origin.x, y: -bounds.origin.y)
             page.draw(with: .mediaBox, to: ctx)
             guard let cg = ctx.makeImage(),
-                  let redacted = ImageEditService.redact(cg, rects: rects) else { continue }
+                  let redacted = ImageEditService.redact(cg, rects: rects, color: color) else { continue }
             let nsImage = NSImage(cgImage: redacted, size: bounds.size)
             guard let newPage = PDFPage(image: nsImage) else { continue }
             newPage.setBounds(bounds, for: .mediaBox)
