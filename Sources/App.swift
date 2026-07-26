@@ -41,7 +41,6 @@ struct ToolboxApp: App {
         case .blur:        BlurView()
         case .redact:      RedactView()
         case .collage:     CollageView()
-        case .canvas:      CanvasView()
         case .iconGen:     IconGeneratorView()
         case .removeBG:    RemoveBackgroundView()
         case .qr:          QRCodeView()

@@ -7,6 +7,7 @@ enum CollageService {
         case grid = "Grid"
         case horizontal = "Horizontal"
         case vertical = "Vertical"
+        case freeform = "Freeform"
         var id: String { rawValue }
     }
 
@@ -20,7 +21,7 @@ enum CollageService {
         switch layout {
         case .horizontal: cols = imgs.count
         case .vertical:   cols = 1
-        case .grid:       cols = max(1, min(columns, imgs.count))
+        case .grid, .freeform: cols = max(1, min(columns, imgs.count))
         }
         let rows = Int(ceil(Double(imgs.count) / Double(cols)))
 
