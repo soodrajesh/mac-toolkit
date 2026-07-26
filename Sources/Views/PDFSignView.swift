@@ -14,7 +14,13 @@ struct PDFSignView: View {
     @State private var strokes: [[CGPoint]] = []
     @State private var typed = "Rajesh Sood"
     @State private var scriptFont = "Snell Roundhand"
-    @State private var inkColor: Color = .blue
+    @State private var inkColor: Color = .black
+
+    static let signatureFonts = [
+        "Snell Roundhand", "Savoye LET", "Zapfino", "Apple Chancery", "Brush Script MT",
+        "SignPainter", "Noteworthy", "Bradley Hand", "Marker Felt", "Chalkboard SE",
+        "Herculanum", "Trattatello", "Papyrus",
+    ]
 
     enum Mode: String, CaseIterable, Identifiable { case draw = "Draw", type = "Type"; var id: String { rawValue } }
     private let padSize = CGSize(width: 400, height: 150)
@@ -131,8 +137,8 @@ struct PDFSignView: View {
                 } else {
                     TextField("Signature text", text: $typed).textFieldStyle(.roundedBorder).frame(width: 300)
                     Picker("Font", selection: $scriptFont) {
-                        ForEach(["Snell Roundhand", "Zapfino", "Marker Felt", "Bradley Hand", "Chalkboard SE"], id: \.self) {
-                            Text($0).font(.custom($0, size: 15)).tag($0)
+                        ForEach(Self.signatureFonts, id: \.self) {
+                            Text($0).font(.custom($0, size: 16)).tag($0)
                         }
                     }.frame(width: 240)
                 }
