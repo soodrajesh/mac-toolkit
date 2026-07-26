@@ -68,6 +68,18 @@ enum ImageService {
         guard CGImageDestinationFinalize(dest) else { throw JobError.cannotWrite(url) }
     }
 
+    /// Encodes to in-memory Data — used to estimate output file size.
+    static func encodeData(_ image: CGImage, format: Format, quality: Double) -> Data? {
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(
+            data, format.utType.identifier as CFString, 1, nil) else { return nil }
+        var props: [CFString: Any] = [:]
+        if format.lossy { props[kCGImageDestinationLossyCompressionQuality] = quality }
+        CGImageDestinationAddImage(dest, image, props as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return data as Data
+    }
+
     /// One-stop transform: optional downscale + format + quality.
     /// Returns (output URL, before, after) sizes.
     static func process(_ url: URL,
