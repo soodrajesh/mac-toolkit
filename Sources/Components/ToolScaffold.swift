@@ -3,55 +3,103 @@ import UniformTypeIdentifiers
 
 /// Common tool layout: title, drop well, file list, output picker, options,
 /// a run button, and a result/error bar. Views inject their own `options`
-/// and `runLabel`/`onRun`.
-struct ToolScaffold<Options: View>: View {
+/// and `runLabel`/`onRun`. An optional `preview` builder renders a pane on the
+/// right (image tools use it to show the image / a live result).
+struct ToolScaffold<Options: View, Preview: View>: View {
     let title: String
     let subtitle: String
     @ObservedObject var model: JobModel
     let runLabel: String
     let onRun: () -> Void
+    @ViewBuilder var preview: () -> Preview
     @ViewBuilder var options: () -> Options
 
+    init(title: String, subtitle: String, model: JobModel, runLabel: String,
+         onRun: @escaping () -> Void,
+         @ViewBuilder preview: @escaping () -> Preview = { EmptyView() },
+         @ViewBuilder options: @escaping () -> Options) {
+        self.title = title; self.subtitle = subtitle; self.model = model
+        self.runLabel = runLabel; self.onRun = onRun
+        self.preview = preview; self.options = options
+    }
+
+    private var hasPreview: Bool { Preview.self != EmptyView.self }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.title2).bold()
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-                }
+        HStack(alignment: .top, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.title2).bold()
+                        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                    }
 
-                DropWell(model: model)
+                    DropWell(model: model)
+                    if !model.files.isEmpty { FileList(model: model) }
+                    options()
+                    OutputPicker(model: model)
 
-                if !model.files.isEmpty {
-                    FileList(model: model)
-                }
-
-                options()
-
-                OutputPicker(model: model)
-
-                HStack(spacing: 12) {
-                    Button(action: onRun) {
-                        if model.isRunning {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text(runLabel)
+                    HStack(spacing: 12) {
+                        Button(action: onRun) {
+                            if model.isRunning { ProgressView().controlSize(.small) }
+                            else { Text(runLabel) }
                         }
-                    }
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(model.files.isEmpty || model.isRunning)
-                    .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .disabled(model.files.isEmpty || model.isRunning)
+                        .buttonStyle(.borderedProminent)
 
-                    if !model.files.isEmpty {
-                        Button("Clear") { model.clear() }
-                            .disabled(model.isRunning)
+                        if !model.files.isEmpty {
+                            Button("Clear") { model.clear() }.disabled(model.isRunning)
+                        }
+                        Spacer()
                     }
-                    Spacer()
+
+                    ResultBar(model: model)
                 }
-
-                ResultBar(model: model)
+                .padding(20)
             }
-            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if hasPreview {
+                Divider()
+                PreviewPane { preview() }
+                    .frame(width: 380)
+            }
+        }
+    }
+}
+
+/// Right-side preview container with a consistent header.
+struct PreviewPane<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Preview", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// Reusable checkerboard-backed image preview (shows transparency).
+struct ImagePreview: View {
+    let image: NSImage?
+    var caption: String? = nil
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.12))
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFit().padding(6)
+                } else {
+                    Text("No image").foregroundStyle(.secondary)
+                }
+            }
+            .frame(minHeight: 240)
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
+            if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
         }
     }
 }
@@ -110,33 +158,63 @@ struct DropWell: View {
     }
 }
 
-/// Editable, reorderable list of selected files.
+/// Editable, reorderable list of selected files: numbered rows, selection
+/// highlight, up/down reorder arrows (plus drag), a type icon, and remove.
 struct FileList: View {
     @ObservedObject var model: JobModel
+    @State private var selected: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(model.files.count) file\(model.files.count == 1 ? "" : "s")")
                 .font(.caption).foregroundStyle(.secondary)
             List {
-                ForEach(model.files, id: \.self) { url in
-                    HStack {
-                        Image(systemName: "doc")
-                        Text(url.lastPathComponent).lineLimit(1).truncationMode(.middle)
-                        Spacer()
-                        Text(url.fileSize.humanBytes)
-                            .font(.caption).foregroundStyle(.secondary)
-                        Button {
-                            model.remove(url)
-                        } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary)
-                    }
+                ForEach(Array(model.files.enumerated()), id: \.element) { idx, url in
+                    row(idx: idx, url: url)
                 }
                 .onMove { model.move(from: $0, to: $1) }
             }
-            .frame(height: min(CGFloat(model.files.count) * 30 + 12, 180))
+            .frame(height: min(CGFloat(model.files.count) * 34 + 12, 220))
             .listStyle(.bordered)
         }
+    }
+
+    @ViewBuilder
+    private func row(idx: Int, url: URL) -> some View {
+        let isSel = selected == url
+        HStack(spacing: 8) {
+            Text("\(idx + 1).").font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
+            Image(systemName: icon(for: url)).foregroundStyle(isSel ? Color.accentColor : .secondary)
+            Text(url.lastPathComponent).lineLimit(1).truncationMode(.middle)
+            Spacer()
+            Text(url.fileSize.humanBytes).font(.caption).foregroundStyle(.secondary)
+            if model.allowsMultiple {
+                VStack(spacing: 1) {
+                    Button { model.moveUp(url) } label: { Image(systemName: "chevron.up") }
+                        .disabled(idx == 0)
+                    Button { model.moveDown(url) } label: { Image(systemName: "chevron.down") }
+                        .disabled(idx == model.files.count - 1)
+                }
+                .buttonStyle(.plain).font(.caption2).foregroundStyle(.secondary)
+            }
+            Button { if selected == url { selected = nil }; model.remove(url) } label: {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 3).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 6)
+            .fill(isSel ? Color.accentColor.opacity(0.16) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selected = isSel ? nil : url }
+        .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
+    }
+
+    private func icon(for url: URL) -> String {
+        if url.conformsTo(.pdf) { return "doc.richtext" }
+        if url.conformsTo(.image) { return "photo" }
+        return "doc"
     }
 }
 

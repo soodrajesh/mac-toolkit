@@ -34,6 +34,8 @@ final class JobModel: ObservableObject {
     func remove(_ url: URL) { files.removeAll { $0 == url } }
     func clear() { files = []; result = nil; error = nil; progress = 0; status = "" }
     func move(from source: IndexSet, to dest: Int) { files.move(fromOffsets: source, toOffset: dest) }
+    func moveUp(_ url: URL) { if let i = files.firstIndex(of: url), i > 0 { files.swapAt(i, i - 1) } }
+    func moveDown(_ url: URL) { if let i = files.firstIndex(of: url), i < files.count - 1 { files.swapAt(i, i + 1) } }
 
     /// Runs `work` off the main actor, funnelling result/error/running state.
     func run(_ work: @escaping @Sendable ([URL]) throws -> JobResult) {

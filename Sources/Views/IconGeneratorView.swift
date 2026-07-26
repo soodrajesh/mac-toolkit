@@ -6,6 +6,7 @@ struct IconGeneratorView: View {
     @State private var pngs = true
     @State private var ico = true
     @State private var icns = true
+    @State private var square: NSImage?
 
     var body: some View {
         ToolScaffold(
@@ -13,7 +14,13 @@ struct IconGeneratorView: View {
             subtitle: "Turn an image into a favicon + full app-icon set (center-cropped to square).",
             model: model,
             runLabel: "Generate",
-            onRun: run
+            onRun: run,
+            preview: {
+                VStack {
+                    ImagePreview(image: square, caption: "Square crop used for icons")
+                    Spacer()
+                }
+            }
         ) {
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("PNG set (16–1024 px)", isOn: $pngs)
@@ -22,6 +29,11 @@ struct IconGeneratorView: View {
                 Text("Outputs land in a \"<name>-icons\" folder next to the source.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+        }
+        .onChange(of: model.files) { _ in
+            square = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
+                .map { IconService.square($0) }
+                .map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
         }
     }
 
