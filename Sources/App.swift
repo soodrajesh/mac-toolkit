@@ -2,18 +2,24 @@ import SwiftUI
 
 @main
 struct ToolboxApp: App {
+    private static let collapsedSectionsKey = "collapsedSidebarSections"
+
     @State private var selection: Tool = .pdfCompress
+    @State private var collapsedSections: Set<String> =
+        Set(UserDefaults.standard.stringArray(forKey: ToolboxApp.collapsedSectionsKey) ?? [])
 
     var body: some Scene {
         WindowGroup {
             NavigationSplitView {
                 List(selection: $selection) {
                     ForEach(Tool.sections, id: \.name) { section in
-                        Section(section.name) {
+                        Section(isExpanded: isExpandedBinding(for: section.name)) {
                             ForEach(section.tools) { tool in
                                 Label(tool.rawValue, systemImage: tool.symbol)
                                     .tag(tool)
                             }
+                        } header: {
+                            Text(section.name)
                         }
                     }
                 }
@@ -36,6 +42,17 @@ struct ToolboxApp: App {
                     .keyboardShortcut("r", modifiers: .command)
             }
         }
+    }
+
+    private func isExpandedBinding(for sectionName: String) -> Binding<Bool> {
+        Binding(
+            get: { !collapsedSections.contains(sectionName) },
+            set: { expanded in
+                if expanded { collapsedSections.remove(sectionName) }
+                else { collapsedSections.insert(sectionName) }
+                UserDefaults.standard.set(Array(collapsedSections), forKey: Self.collapsedSectionsKey)
+            }
+        )
     }
 
     @ViewBuilder
