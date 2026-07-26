@@ -13,13 +13,15 @@ struct ToolboxApp: App {
             NavigationSplitView {
                 List(selection: $selection) {
                     ForEach(Tool.sections, id: \.name) { section in
-                        Section(isExpanded: isExpandedBinding(for: section.name)) {
-                            ForEach(section.tools) { tool in
-                                Label(tool.rawValue, systemImage: tool.symbol)
-                                    .tag(tool)
+                        Section {
+                            if !collapsedSections.contains(section.name) {
+                                ForEach(section.tools) { tool in
+                                    Label(tool.rawValue, systemImage: tool.symbol)
+                                        .tag(tool)
+                                }
                             }
                         } header: {
-                            Text(section.name)
+                            sectionHeader(section.name)
                         }
                     }
                 }
@@ -44,15 +46,29 @@ struct ToolboxApp: App {
         }
     }
 
-    private func isExpandedBinding(for sectionName: String) -> Binding<Bool> {
-        Binding(
-            get: { !collapsedSections.contains(sectionName) },
-            set: { expanded in
-                if expanded { collapsedSections.remove(sectionName) }
-                else { collapsedSections.insert(sectionName) }
-                UserDefaults.standard.set(Array(collapsedSections), forKey: Self.collapsedSectionsKey)
+    @ViewBuilder
+    private func sectionHeader(_ name: String) -> some View {
+        let isCollapsed = collapsedSections.contains(name)
+        Button {
+            toggleSection(name)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .frame(width: 10)
+                Text(name)
+                Spacer()
             }
-        )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleSection(_ name: String) {
+        if collapsedSections.contains(name) { collapsedSections.remove(name) }
+        else { collapsedSections.insert(name) }
+        UserDefaults.standard.set(Array(collapsedSections), forKey: Self.collapsedSectionsKey)
     }
 
     @ViewBuilder
