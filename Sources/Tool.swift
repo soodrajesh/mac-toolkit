@@ -20,6 +20,9 @@ enum Tool: String, CaseIterable, Identifiable {
     case qr          = "QR Code"
     case ocr         = "OCR / Text"
     case videoDownload = "Video Downloader"
+    case audioTrim   = "Trim Audio"
+    case audioMerge  = "Merge Audio"
+    case audioLoop   = "Loop Audio"
 
     var id: String { rawValue }
 
@@ -43,6 +46,9 @@ enum Tool: String, CaseIterable, Identifiable {
         case .qr:          return "qrcode"
         case .ocr:         return "text.viewfinder"
         case .videoDownload: return "arrow.down.to.line.circle"
+        case .audioTrim:     return "waveform"
+        case .audioMerge:    return "waveform.badge.plus"
+        case .audioLoop:     return "repeat"
         }
     }
 
@@ -53,6 +59,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .qr:  return "Utilities"
         case .ocr: return "Recognition"
         case .videoDownload: return "Media"
+        case .audioTrim, .audioMerge, .audioLoop: return "Audio"
         }
     }
 

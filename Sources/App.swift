@@ -92,6 +92,9 @@ struct ToolboxApp: App {
         case .qr:          QRCodeView()
         case .ocr:         OCRView()
         case .videoDownload: YouTubeDownloadView()
+        case .audioTrim:   AudioTrimView()
+        case .audioMerge:  AudioMergeView()
+        case .audioLoop:   AudioLoopView()
         }
     }
 }

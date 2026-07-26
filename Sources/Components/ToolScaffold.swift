@@ -222,6 +222,7 @@ struct FileList: View {
     private func icon(for url: URL) -> String {
         if url.conformsTo(.pdf) { return "doc.richtext" }
         if url.conformsTo(.image) { return "photo" }
+        if url.conformsTo(.audio) { return "waveform" }
         return "doc"
     }
 }

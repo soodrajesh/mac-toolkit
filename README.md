@@ -86,6 +86,19 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
   Twitch, etc.) and download them as MP4 videos or extract audio as MP3 files.
   Choose quality presets (720p, 480p, etc. for video; 128/192/320 kbps for audio).
   Requires `yt-dlp` and `ffmpeg`.
+- **Trim Audio** — load one audio file, drag on the waveform to draw one or more
+  cut regions (pinch to zoom for precision), play/pause with a click-to-seek
+  playhead to find exact points, then **Extract Selected** (keep only the
+  regions, concatenated into one file) or **Delete Selected** (remove them,
+  keeping the rest). Optional fade in/out per region.
+- **Merge Audio** — combine multiple audio files into one, in list order (drag
+  rows to reorder) — plain concatenation, no crossfade.
+- **Loop Audio** — repeat a short clip back-to-back until it fills a target
+  duration (e.g. loop a 30s clip to 60 minutes), trimming the final repeat to
+  land exactly on time. No crossfade at loop seams.
+
+  Audio tools use native AVFoundation (no ffmpeg) — output is AAC/M4A; MP3
+  output isn't possible without ffmpeg since AVFoundation has no MP3 encoder.
 
 ## Optional: stronger PDF compression
 
@@ -100,11 +113,12 @@ The Compress PDF tool auto-detects it and shows a "Ghostscript detected" badge.
 ```
 Sources/
   App.swift, Tool.swift, Support.swift
-  Components/  JobModel.swift, ToolScaffold.swift, RegionSelector.swift
+  Components/  JobModel.swift, ToolScaffold.swift, RegionSelector.swift,
+               WaveformView.swift, AudioPlayerController.swift
                (drop well, numbered file list, output picker, interactive canvas)
   Services/    PDFService, ImageService, ImageEditService, CollageService,
                FreeformService, BackgroundService, IconService, QRService,
-               OCRService, Ghostscript
+               OCRService, Ghostscript, AudioService
   Views/       one per sidebar tool
 ```
 
