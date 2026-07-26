@@ -99,8 +99,10 @@ enum YtDlp {
         let outputPattern = "\(outputDir.path)/%(title).150s.%(ext)s"
         var args: [String] = []
 
+        let expectedExt: String
         switch format {
         case .mp4(let quality):
+            expectedExt = "mp4"
             args = [
                 "-f", quality.formatSelector,
                 "--merge-output-format", "mp4",
@@ -108,9 +110,11 @@ enum YtDlp {
                 "--newline",
                 "-o", outputPattern,
                 "--no-keep-fragments",
+                "--print", "after_move:filepath",
                 url
             ]
         case .mp3(let bitrate):
+            expectedExt = "mp3"
             args = [
                 "-x",
                 "--audio-format", "mp3",
@@ -132,6 +136,7 @@ enum YtDlp {
 
         try p.run()
 
+        var capturedOutput = ""
         let outputQueue = DispatchQueue(label: "yt-dlp.output", qos: .userInitiated)
         let outputGroup = DispatchGroup()
         outputGroup.enter()
@@ -141,6 +146,7 @@ enum YtDlp {
             while p.isRunning {
                 if let data = try? handle.availableData, !data.isEmpty {
                     let line = String(decoding: data, as: UTF8.self)
+                    capturedOutput += line
                     for outputLine in line.split(separator: "\n", omittingEmptySubsequences: true) {
                         let lineStr = String(outputLine).trimmingCharacters(in: .whitespacesAndNewlines)
                         if lineStr.contains("[download]") && lineStr.contains("%") {
@@ -159,6 +165,11 @@ enum YtDlp {
                 }
                 Thread.sleep(forTimeInterval: 0.01)
             }
+            // Drain any remaining buffered output after the process has exited.
+            let remaining = handle.readDataToEndOfFile()
+            if !remaining.isEmpty {
+                capturedOutput += String(decoding: remaining, as: UTF8.self)
+            }
             outputGroup.leave()
         }
 
@@ -171,7 +182,18 @@ enum YtDlp {
             throw JobError.failed("Download failed: \(errMsg)")
         }
 
-        // Find the downloaded file by searching for recently modified files in outputDir
+        // yt-dlp's `--print after_move:filepath` writes the final output path as the
+        // last absolute-path line with the expected extension.
+        let candidateLines = capturedOutput
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.hasPrefix("/") && $0.hasSuffix(".\(expectedExt)") }
+
+        if let filePath = candidateLines.last, FileManager.default.fileExists(atPath: filePath) {
+            return URL(fileURLWithPath: filePath)
+        }
+
+        // Fallback: search outputDir for a recently modified file with the expected extension.
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(at: outputDir, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) else {
             throw JobError.failed("Cannot read output directory")
@@ -179,26 +201,18 @@ enum YtDlp {
 
         let now = Date()
         let recentFiles = files.filter { url in
-            do {
-                let attrs = try url.resourceValues(forKeys: [.contentModificationDateKey])
-                if let modDate = attrs.contentModificationDate {
-                    return now.timeIntervalSince(modDate) < 10 && url.hasDirectoryPath == false
-                }
-            } catch { }
-            return false
+            guard url.pathExtension == expectedExt else { return false }
+            guard let attrs = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let modDate = attrs.contentModificationDate else { return false }
+            return now.timeIntervalSince(modDate) < 15
         }.sorted { a, b in
-            do {
-                let aAttrs = try a.resourceValues(forKeys: [.contentModificationDateKey])
-                let bAttrs = try b.resourceValues(forKeys: [.contentModificationDateKey])
-                if let aDate = aAttrs.contentModificationDate, let bDate = bAttrs.contentModificationDate {
-                    return aDate > bDate
-                }
-            } catch { }
-            return false
+            let aDate = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            let bDate = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            return aDate > bDate
         }
 
         guard let outputFile = recentFiles.first else {
-            throw JobError.failed("No downloaded file found in output directory")
+            throw JobError.failed("Output file not found after download")
         }
 
         return outputFile
