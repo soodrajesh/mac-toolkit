@@ -80,7 +80,7 @@ struct PDFPagesView: View {
         let dir = model.outputDir
         let operation = op, rot = rotation, spec = pageSpec
         let d = dpi, fmt = imgFormat, q = quality
-        model.run { files in
+        model.runWithProgress { files, report in
             var r = JobResult()
             switch operation {
             case .fromImages:
@@ -93,7 +93,9 @@ struct PDFPagesView: View {
             default:
                 let pdfs = files.filter { $0.conformsTo(.pdf) }
                 guard !pdfs.isEmpty else { throw JobError.badInput("No PDF selected") }
-                for url in pdfs {
+                let total = pdfs.count
+                for (i, url) in pdfs.enumerated() {
+                    defer { report(Double(i + 1) / Double(total)) }
                     do {
                         switch operation {
                         case .rotate:

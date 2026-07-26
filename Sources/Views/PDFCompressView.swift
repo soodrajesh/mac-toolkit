@@ -55,9 +55,10 @@ struct PDFCompressView: View {
         let preset = gsPreset
         let d = dpi, q = quality
         let dir = model.outputDir
-        model.run { files in
+        model.runWithProgress { files, report in
             var result = JobResult()
-            for url in files {
+            let total = files.count
+            for (i, url) in files.enumerated() {
                 if Task.isCancelled { break }
                 let out = OutputPath.make(for: url, dir: dir, suffix: "-compressed", ext: "pdf")
                 do {
@@ -73,6 +74,7 @@ struct PDFCompressView: View {
                 } catch {
                     result.failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
                 }
+                report(Double(i + 1) / Double(total))
             }
             return result
         }

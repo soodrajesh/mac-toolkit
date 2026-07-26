@@ -29,6 +29,10 @@ Downloader tool (downloads videos from the web as requested).
   Both are required; the app auto-detects them and shows a hint if missing. yt-dlp
   supports 1000+ video sites (YouTube, TikTok, Instagram, Twitter/X, Twitch, Reddit, etc.).
 
+- **Transcribe** — needs a one-time Speech Recognition permission grant; clicking
+  **Transcribe** prompts for it automatically the first time. Language picker is
+  scoped to English (US / UK / India).
+
 ## Build & run
 
 ```bash
@@ -67,6 +71,9 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **Page Numbers** — stamp page numbers/labels (`{n}`, `{total}`) at any corner/edge.
 - **Crop / Trim Margins** — *batch*: trim whitespace margins from every page by a
   percentage (uniform or per-side); lossless (sets the PDF crop box).
+- **Organize Pages** — *single PDF*: a visual thumbnail grid — drag to reorder,
+  rotate or remove individual pages (with per-page restore from a trash strip),
+  then save as a new PDF.
 - **Convert & Compress** — *batch*: many images at once → change format (incl.
   HEIC → JPEG), compress by quality, cap max size, EXIF/GPS always stripped.
 - **Image Editor** — *single image*: crop with draggable handles, rotate, flip,
@@ -88,6 +95,12 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
   read/decode any supported symbology from an image.
 - **OCR / Text** — extract text from scanned PDFs/images, or build a **searchable
   PDF** (invisible selectable text layer) — on-device (Vision).
+- **Transcribe** — *batch*: speech-to-text for audio or video files, on-device
+  (Speech framework), English (US/UK/India). Video files have their audio
+  extracted first (reuses the Convert & Compress Video pipeline, ffmpeg fallback
+  included). Outputs a `.txt` transcript, optionally also `.srt` subtitles.
+  Refuses to run rather than fall back to Apple's server-based recognizer if
+  on-device recognition isn't available — this tool never sends audio anywhere.
 - **Video Downloader** — *batch*: paste multiple video URLs (YouTube, TikTok, Instagram,
   Twitch, etc.) and download them as MP4 videos or extract audio as MP3 files.
   Choose quality presets (720p, 480p, etc. for video; 128/192/320 kbps for audio).
@@ -135,8 +148,10 @@ Sources/
   Services/    PDFService, ImageService, ImageEditService, CollageService,
                FreeformService, BackgroundService, IconService, QRService,
                OCRService, Ghostscript, AudioService, VideoService,
-               WatermarkService, FaceDetectionService, FileInfoService
-  Views/       one per sidebar tool
+               WatermarkService, FaceDetectionService, FileInfoService,
+               TranscriptionService
+  Views/       one per sidebar tool — PDFOrganizeView.swift adds a
+               drag-reorderable page thumbnail grid (see PDFService.organize)
 ```
 
 Shared UX: numbered drag/arrow-reorderable file lists (drop a folder to add every
@@ -144,9 +159,10 @@ matching file inside it, recursively), a collapsible **Details** panel showing
 per-file metadata once a file is selected (dimensions/EXIF for images, document
 properties for PDFs, codec/bitrate/tags for audio & video), right-side or in-place
 live previews, a remembered output folder (persisted across launches), a real
-progress bar + **Cancel** button for batch jobs in progress, and collapsible
-sidebar sections (click a section header to expand/collapse; remembered across
-launches).
+progress bar (per-file, not just a spinner — every batch tool reports true
+progress as each file finishes) + **Cancel** button for batch jobs in progress,
+and collapsible sidebar sections (click a section header to expand/collapse;
+remembered across launches).
 
 Video playback (both the Convert/Extract Audio preview and any future video
 work) is built on plain `AVFoundation` + `AVPlayerLayer`, not AVKit's SwiftUI
@@ -158,7 +174,5 @@ deliberate constraint, not an oversight.
 ## Ideas for later
 
 Extract embedded images, Freeform snap/alignment guides, single-image text stamp in
-Image Editor, ⌘S menu command, real per-file progress % for PDF/image batch tools
-(currently only Convert & Compress Video / Extract Audio report true progress —
-the rest jump straight to 100% since each file finishes in well under a second),
-`CFBundleDocumentTypes` + codesigning for "Open With" / Gatekeeper-friendly sharing.
+Image Editor, ⌘S menu command, `CFBundleDocumentTypes` + codesigning for "Open With" /
+Gatekeeper-friendly sharing.

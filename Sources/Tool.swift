@@ -6,6 +6,7 @@ enum Tool: String, CaseIterable, Identifiable {
     case pdfMerge    = "Merge PDF"
     case pdfSplit    = "Split PDF"
     case pdfPages    = "PDF Pages"
+    case pdfOrganize = "Organize Pages"
     case pdfSecurity = "PDF Security"
     case pdfSign     = "Sign PDF"
     case pdfNumbers  = "Page Numbers"
@@ -21,6 +22,7 @@ enum Tool: String, CaseIterable, Identifiable {
     case watermark   = "Watermark"
     case qr          = "Barcode / QR"
     case ocr         = "OCR / Text"
+    case transcribe  = "Transcribe"
     case videoDownload = "Video Downloader"
     case videoConvert  = "Convert & Compress Video"
     case videoExtractAudio = "Extract Audio"
@@ -36,6 +38,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .pdfMerge:    return "arrow.triangle.merge"
         case .pdfSplit:    return "scissors"
         case .pdfPages:    return "doc.on.doc"
+        case .pdfOrganize: return "square.grid.3x2"
         case .pdfSecurity: return "lock.doc"
         case .pdfSign:     return "signature"
         case .pdfNumbers:  return "list.number"
@@ -51,6 +54,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .watermark:   return "seal"
         case .qr:          return "qrcode"
         case .ocr:         return "text.viewfinder"
+        case .transcribe:  return "waveform.and.mic"
         case .videoDownload: return "arrow.down.to.line.circle"
         case .videoConvert:  return "film"
         case .videoExtractAudio: return "speaker.wave.3"
@@ -62,10 +66,10 @@ enum Tool: String, CaseIterable, Identifiable {
 
     var section: String {
         switch self {
-        case .pdfCompress, .pdfMerge, .pdfSplit, .pdfPages, .pdfSecurity, .pdfSign, .pdfNumbers, .pdfMeta, .pdfCrop: return "PDF"
+        case .pdfCompress, .pdfMerge, .pdfSplit, .pdfPages, .pdfOrganize, .pdfSecurity, .pdfSign, .pdfNumbers, .pdfMeta, .pdfCrop: return "PDF"
         case .imageTools, .imageEdit, .blur, .redact, .collage, .iconGen, .removeBG, .watermark: return "Images"
         case .qr:  return "Utilities"
-        case .ocr: return "Recognition"
+        case .ocr, .transcribe: return "Recognition"
         case .videoDownload, .videoConvert, .videoExtractAudio: return "Media"
         case .audioTrim, .audioMerge, .audioLoop: return "Audio"
         }

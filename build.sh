@@ -35,6 +35,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Rajesh Sood</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Used on-device by the Transcribe tool to turn your audio/video files into text. Audio never leaves your Mac.</string>
 </dict>
 </plist>
 PLIST

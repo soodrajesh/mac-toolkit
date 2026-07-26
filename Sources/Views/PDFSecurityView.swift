@@ -67,9 +67,10 @@ struct PDFSecurityView: View {
         if (operation == .encrypt || operation == .decrypt) && pw.isEmpty {
             model.error = "Enter a password"; return
         }
-        model.run { files in
+        model.runWithProgress { files, report in
             var r = JobResult()
-            for url in files {
+            let total = files.count
+            for (i, url) in files.enumerated() {
                 if Task.isCancelled { break }
                 do {
                     switch operation {
@@ -86,6 +87,7 @@ struct PDFSecurityView: View {
                 } catch {
                     r.failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
                 }
+                report(Double(i + 1) / Double(total))
             }
             return r
         }

@@ -99,9 +99,10 @@ struct ImageToolsView: View {
         let dir = model.outputDir
         let fmt = format, q = quality
         let cap = resize ? Int(maxPixel) : nil
-        model.run { files in
+        model.runWithProgress { files, report in
             var r = JobResult()
-            for url in files {
+            let total = files.count
+            for (i, url) in files.enumerated() {
                 if Task.isCancelled { break }
                 do {
                     let (out, before, after) = try ImageService.process(
@@ -112,6 +113,7 @@ struct ImageToolsView: View {
                 } catch {
                     r.failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
                 }
+                report(Double(i + 1) / Double(total))
             }
             return r
         }

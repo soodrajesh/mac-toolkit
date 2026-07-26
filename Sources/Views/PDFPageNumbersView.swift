@@ -41,9 +41,10 @@ struct PDFPageNumbersView: View {
     private func run() {
         let fmt = format, pos = position, start = startAt, fs = fontSize
         let dir = model.outputDir
-        model.run { files in
+        model.runWithProgress { files, report in
             var r = JobResult()
-            for url in files {
+            let total = files.count
+            for (i, url) in files.enumerated() {
                 if Task.isCancelled { break }
                 do {
                     let out = OutputPath.make(for: url, dir: dir, suffix: "-numbered", ext: "pdf")
@@ -53,6 +54,7 @@ struct PDFPageNumbersView: View {
                 } catch {
                     r.failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
                 }
+                report(Double(i + 1) / Double(total))
             }
             return r
         }

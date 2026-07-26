@@ -146,6 +146,24 @@ enum PDFService {
         return r
     }
 
+    /// Rebuilds a PDF from a custom page order, each entry a 0-based index into
+    /// the source plus an additional rotation delta on top of its existing
+    /// rotation. Backs the visual page organizer (drag-reorder, per-page
+    /// rotate, delete/restore).
+    static func organize(_ url: URL, order: [(originalIndex: Int, rotation: Int)], to output: URL) throws {
+        let doc = try open(url)
+        let out = PDFDocument()
+        var idx = 0
+        for entry in order {
+            guard entry.originalIndex >= 0, entry.originalIndex < doc.pageCount,
+                  let page = doc.page(at: entry.originalIndex) else { continue }
+            if entry.rotation != 0 { page.rotation = normalizedRotation(page.rotation + entry.rotation) }
+            out.insert(page, at: idx); idx += 1
+        }
+        guard idx > 0 else { throw JobError.badInput("No pages left — everything was deleted") }
+        guard out.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
     // MARK: Extract embedded images
 
     private final class ImageStreams { var list: [CGPDFStreamRef] = [] }

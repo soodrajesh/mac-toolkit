@@ -107,9 +107,10 @@ struct PDFCropView: View {
         let dir = model.outputDir
         let l = uniform ? all : left, r = uniform ? all : right
         let t = uniform ? all : top, b = uniform ? all : bottom
-        model.run { files in
+        model.runWithProgress { files, report in
             var res = JobResult()
-            for url in files {
+            let total = files.count
+            for (i, url) in files.enumerated() {
                 if Task.isCancelled { break }
                 do {
                     let out = OutputPath.make(for: url, dir: dir, suffix: "-cropped", ext: "pdf")
@@ -118,6 +119,7 @@ struct PDFCropView: View {
                 } catch {
                     res.failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
                 }
+                report(Double(i + 1) / Double(total))
             }
             return res
         }
