@@ -183,29 +183,32 @@ struct FileList: View {
     private func row(idx: Int, url: URL) -> some View {
         let isSel = selected == url
         HStack(spacing: 8) {
-            Text("\(idx + 1).").font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
-            Image(systemName: icon(for: url)).foregroundStyle(isSel ? Color.accentColor : .secondary)
-            Text(url.lastPathComponent).lineLimit(1).truncationMode(.middle)
-            Spacer()
-            Text(url.fileSize.humanBytes).font(.caption).foregroundStyle(.secondary)
             if model.allowsMultiple {
-                VStack(spacing: 1) {
+                HStack(spacing: 2) {
                     Button { model.moveUp(url) } label: { Image(systemName: "chevron.up") }
                         .disabled(idx == 0)
                     Button { model.moveDown(url) } label: { Image(systemName: "chevron.down") }
                         .disabled(idx == model.files.count - 1)
                 }
-                .buttonStyle(.plain).font(.caption2).foregroundStyle(.secondary)
+                .buttonStyle(.borderless).font(.caption).foregroundStyle(.secondary)
             }
+            Text("\(idx + 1).").font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
+            Image(systemName: icon(for: url)).foregroundStyle(isSel ? Color.white : .secondary)
+            Text(url.lastPathComponent).lineLimit(1).truncationMode(.middle)
+                .fontWeight(isSel ? .semibold : .regular)
+                .foregroundStyle(isSel ? Color.white : .primary)
+            Spacer()
+            Text(url.fileSize.humanBytes).font(.caption)
+                .foregroundStyle(isSel ? Color.white.opacity(0.85) : .secondary)
             Button { if selected == url { selected = nil }; model.remove(url) } label: {
                 Image(systemName: "xmark.circle.fill")
             }
-            .buttonStyle(.plain).foregroundStyle(.secondary)
+            .buttonStyle(.plain).foregroundStyle(isSel ? Color.white.opacity(0.9) : .secondary)
         }
-        .padding(.vertical, 3).padding(.horizontal, 6)
+        .padding(.vertical, 4).padding(.horizontal, 8)
         .background(RoundedRectangle(cornerRadius: 6)
-            .fill(isSel ? Color.accentColor.opacity(0.16) : Color.clear))
+            .fill(isSel ? Color.accentColor : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selected = isSel ? nil : url }
         .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
