@@ -20,10 +20,10 @@ enum YtDlp {
 
         var formatSelector: String {
             switch self {
-            case .best: return "best"
-            case .p1080: return "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-            case .p720: return "bestvideo[height<=720]+bestaudio/best[height<=720]"
-            case .p480: return "bestvideo[height<=480]+bestaudio/best[height<=480]"
+            case .best: return "bestvideo+bestaudio/best"
+            case .p1080: return "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]"
+            case .p720: return "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]"
+            case .p480: return "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]"
             }
         }
     }
@@ -107,7 +107,7 @@ enum YtDlp {
                 "--no-playlist",
                 "--newline",
                 "-o", outputPattern,
-                "--print", "after_move:filepath",
+                "--no-keep-fragments",
                 url
             ]
         case .mp3(let bitrate):
