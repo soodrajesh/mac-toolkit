@@ -39,22 +39,57 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# --- App icon: build AppIcon.icns from logo.jpg (padded to a square canvas) ---
-if [ -f logo.jpg ]; then
-  ICONSET="$(mktemp -d)/AppIcon.iconset"
-  mkdir -p "$ICONSET"
-  SQ="$(mktemp).png"
-  # Center-crop to a square (keeps the logo's dark background seamless — no bars),
-  # using the smaller side as the square size.
-  SIDE=$(sips -g pixelHeight -g pixelWidth logo.jpg | awk '/pixel/{print $2}' | sort -n | head -1)
-  sips -s format png -c "$SIDE" "$SIDE" logo.jpg --out "$SQ" >/dev/null
-  for size in 16 32 128 256 512; do
-    sips -z $size $size "$SQ" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-    sips -z $((size*2)) $((size*2)) "$SQ" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-  done
-  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-  echo "Icon:  AppIcon.icns generated from logo.jpg"
-fi
+# --- App icon: render from an SF Symbol (stays crisp at every size, no text) ---
+ICON_SCRIPT="$(mktemp /tmp/rendericon-XXXX).swift"
+cat > "$ICON_SCRIPT" <<'SWIFT'
+import AppKit
+
+let size: CGFloat = 1024
+let image = NSImage(size: NSSize(width: size, height: size))
+image.lockFocus()
+
+let bgRect = NSRect(x: 0, y: 0, width: size, height: size)
+NSGradient(starting: NSColor(calibratedRed: 0.24, green: 0.26, blue: 0.31, alpha: 1),
+           ending: NSColor(calibratedRed: 0.07, green: 0.08, blue: 0.10, alpha: 1))?
+    .draw(in: bgRect, angle: -90)
+
+let config = NSImage.SymbolConfiguration(pointSize: size * 0.52, weight: .semibold)
+if let symbol = NSImage(systemSymbolName: "wrench.and.screwdriver.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(config),
+   let cg = symbol.cgImage(forProposedRect: nil, context: nil, hints: nil),
+   let ctx = NSGraphicsContext.current?.cgContext {
+    let symSize = symbol.size
+    let rect = CGRect(x: (size - symSize.width) / 2, y: (size - symSize.height) / 2,
+                       width: symSize.width, height: symSize.height)
+    ctx.saveGState()
+    ctx.clip(to: rect, mask: cg)
+    NSColor.white.setFill()
+    ctx.fill(rect)
+    ctx.restoreGState()
+}
+
+image.unlockFocus()
+
+guard let tiff = image.tiffRepresentation,
+      let rep = NSBitmapImageRep(data: tiff),
+      let png = rep.representation(using: .png, properties: [:]) else {
+    FileHandle.standardError.write("Failed to render icon\n".data(using: .utf8)!)
+    exit(1)
+}
+try png.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+SWIFT
+
+SQ="$(mktemp /tmp/appicon-XXXX).png"
+swift "$ICON_SCRIPT" "$SQ"
+
+ICONSET="$(mktemp -d)/AppIcon.iconset"
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z $size $size "$SQ" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $((size*2)) $((size*2)) "$SQ" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+echo "Icon:  AppIcon.icns rendered from SF Symbol"
 
 SOURCES=$(find Sources -name '*.swift')
 
