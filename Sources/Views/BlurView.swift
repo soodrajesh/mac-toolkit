@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct BlurView: View {
     @StateObject private var model = JobModel(types: [.image], multiple: false)
     @State private var source: CGImage?
+    @State private var preview: CGImage?
     @State private var rects: [CGRect] = []
     @State private var pixelate = true
     @State private var intensity = 20.0
@@ -22,19 +23,26 @@ struct BlurView: View {
                 if !model.files.isEmpty { FileList(model: model) }
 
                 if let source {
-                    let ns = NSImage(cgImage: source, size: NSSize(width: source.width, height: source.height))
+                    let shown = preview ?? source
+                    let ns = NSImage(cgImage: shown, size: NSSize(width: shown.width, height: shown.height))
                     RegionSelector(image: ns, rects: $rects)
                         .frame(height: 360)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
+                        .onChange(of: rects) { _ in updatePreview() }
 
                     Picker("Mode", selection: $pixelate) {
                         Text("Pixelate").tag(true); Text("Blur").tag(false)
                     }.pickerStyle(.segmented).frame(width: 220)
+                    .onChange(of: pixelate) { _ in updatePreview() }
                     HStack {
                         Text(pixelate ? "Block size: \(Int(intensity))" : "Radius: \(Int(intensity))")
-                        Slider(value: $intensity, in: 5...60).frame(width: 200)
+                        Slider(value: $intensity, in: 5...60) { editing in
+                            if !editing { updatePreview() }
+                        }.frame(width: 200)
                     }
+                    Text("Live preview — the boxes show what will be obscured.")
+                        .font(.caption).foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
                         Button("Apply & Save") { save() }
@@ -53,9 +61,15 @@ struct BlurView: View {
             .padding(20)
         }
         .onChange(of: model.files) { _ in
-            rects = []; saved = nil
+            rects = []; saved = nil; preview = nil
             source = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
         }
+    }
+
+    private func updatePreview() {
+        guard let src = source else { preview = nil; return }
+        preview = rects.isEmpty ? nil
+            : ImageEditService.obscure(src, rects: rects, pixelate: pixelate, intensity: intensity)
     }
 
     private func save() {
