@@ -143,7 +143,7 @@ enum YtDlp {
                 if let data = try? handle.availableData, !data.isEmpty {
                     let line = String(decoding: data, as: UTF8.self)
                     for outputLine in line.split(separator: "\n", omittingEmptySubsequences: true) {
-                        let lineStr = String(outputLine)
+                        let lineStr = String(outputLine).trimmingCharacters(in: .whitespacesAndNewlines)
                         if lineStr.contains("[download]") && lineStr.contains("%") {
                             if let pctMatch = lineStr.range(of: #"([\d.]+)%"#, options: .regularExpression) {
                                 let pctStr = String(lineStr[pctMatch]).replacingOccurrences(of: "%", with: "")
@@ -155,12 +155,21 @@ enum YtDlp {
                                     DispatchQueue.main.async { onProgress(pct / 100, sizeStr) }
                                 }
                             }
-                        } else if !lineStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, lineStr.contains("/") {
-                            lastOutputFile = lineStr.trimmingCharacters(in: .whitespacesAndNewlines)
                         }
                     }
                 }
                 Thread.sleep(forTimeInterval: 0.01)
+            }
+
+            // Read any remaining output after process exits
+            if let data = try? handle.availableData, !data.isEmpty {
+                let line = String(decoding: data, as: UTF8.self)
+                for outputLine in line.split(separator: "\n", omittingEmptySubsequences: true) {
+                    let lineStr = String(outputLine).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !lineStr.isEmpty && lineStr.starts(with: "/") {
+                        lastOutputFile = lineStr
+                    }
+                }
             }
             outputGroup.leave()
         }
