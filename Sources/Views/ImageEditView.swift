@@ -10,6 +10,7 @@ struct ImageEditView: View {
     @State private var saved: URL?
     @State private var selectionPx: CGSize?
     @State private var estimatedBytes: Int?
+    @State private var info: [MetadataField] = []
 
     // Resize & Skew (Paint-style)
     @State private var byPixels = false
@@ -36,6 +37,7 @@ struct ImageEditView: View {
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
+                MetadataPanel(fields: info)
 
                 if let working {
                     let shown = finalCG(working)
@@ -185,6 +187,7 @@ struct ImageEditView: View {
     private func reload() {
         cropRects = []; saved = nil; selectionPx = nil; skewH = 0; skewV = 0
         working = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
+        info = model.files.first.map { FileInfoService.imageFields($0) } ?? []
         resetResizeFields(); updateEstimate()
     }
     private func rotate(_ q: Int) {

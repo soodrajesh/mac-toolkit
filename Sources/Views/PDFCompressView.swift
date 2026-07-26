@@ -7,6 +7,7 @@ struct PDFCompressView: View {
     @State private var gsPreset: Ghostscript.Preset = .ebook
     @State private var dpi = 150.0
     @State private var quality = 0.6
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ToolScaffold(
@@ -17,6 +18,7 @@ struct PDFCompressView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 12) {
+                MetadataPanel(fields: info)
                 if Ghostscript.isAvailable {
                     Toggle("Use Ghostscript (higher quality, keeps text)", isOn: $useGhostscript)
                     Label("Ghostscript detected", systemImage: "checkmark.seal")
@@ -45,6 +47,7 @@ struct PDFCompressView: View {
                 }
             }
         }
+        .onChange(of: model.files) { _ in info = model.files.first.map { FileInfoService.pdfFields($0) } ?? [] }
     }
 
     private func run() {
@@ -55,6 +58,7 @@ struct PDFCompressView: View {
         model.run { files in
             var result = JobResult()
             for url in files {
+                if Task.isCancelled { break }
                 let out = OutputPath.make(for: url, dir: dir, suffix: "-compressed", ext: "pdf")
                 do {
                     if useGS {

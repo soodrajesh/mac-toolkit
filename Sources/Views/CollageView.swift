@@ -63,6 +63,10 @@ struct CollageView: View {
             preview: { previewPane }
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                if !model.files.isEmpty {
+                    let totalBytes = model.files.reduce(Int64(0)) { $0 + $1.fileSize }
+                    MetadataLine(text: "\(model.files.count) image\(model.files.count == 1 ? "" : "s") · \(totalBytes.humanBytes) total")
+                }
                 Picker("Layout", selection: $layout) {
                     ForEach(CollageService.Layout.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented)

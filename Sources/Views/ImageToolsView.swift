@@ -102,6 +102,7 @@ struct ImageToolsView: View {
         model.run { files in
             var r = JobResult()
             for url in files {
+                if Task.isCancelled { break }
                 do {
                     let (out, before, after) = try ImageService.process(
                         url, format: fmt, quality: q, maxPixel: cap, dir: dir, suffix: "-out")

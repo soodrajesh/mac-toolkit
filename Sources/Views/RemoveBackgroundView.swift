@@ -12,6 +12,7 @@ struct RemoveBackgroundView: View {
     @State private var bgColor: Color = .white
     @State private var bgImageURL: URL?
     @State private var bgImageCG: CGImage?
+    @State private var info: [MetadataField] = []
 
     enum BgMode: String, CaseIterable, Identifiable {
         case transparent = "Transparent", color = "Solid color", image = "Image"
@@ -28,6 +29,7 @@ struct RemoveBackgroundView: View {
             preview: { previewPane }
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 if !BackgroundService.isAvailable {
                     Label("Requires macOS 14 or later.", systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange)
@@ -62,6 +64,7 @@ struct RemoveBackgroundView: View {
         .onChange(of: model.files) { _ in
             cutout = nil; cutoutURL = nil; previewImage = nil
             inputImage = model.files.first.flatMap { NSImage(contentsOf: $0) }
+            info = model.files.first.map { FileInfoService.imageFields($0) } ?? []
         }
     }
 

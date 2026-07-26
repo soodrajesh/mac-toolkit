@@ -7,6 +7,7 @@ struct PDFPageNumbersView: View {
     @State private var position: PDFService.StampPosition = .bottomCenter
     @State private var startAt = 1
     @State private var fontSize = 12.0
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ToolScaffold(
@@ -17,6 +18,7 @@ struct PDFPageNumbersView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 HStack {
                     Text("Format:")
                     TextField("Page {n}", text: $format).frame(width: 200)
@@ -33,6 +35,7 @@ struct PDFPageNumbersView: View {
                 }
             }
         }
+        .onChange(of: model.files) { _ in info = model.files.first.map { FileInfoService.pdfFields($0) } ?? [] }
     }
 
     private func run() {
@@ -41,6 +44,7 @@ struct PDFPageNumbersView: View {
         model.run { files in
             var r = JobResult()
             for url in files {
+                if Task.isCancelled { break }
                 do {
                     let out = OutputPath.make(for: url, dir: dir, suffix: "-numbered", ext: "pdf")
                     try PDFService.addPageNumbers(url, format: fmt, position: pos, startAt: start,

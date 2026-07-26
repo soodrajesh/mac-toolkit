@@ -30,6 +30,7 @@ struct PDFSignView: View {
     private let padSize = CGSize(width: 400, height: 150)
     @State private var zoom: CGFloat = 1
     @State private var lastZoom: CGFloat = 1
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -43,6 +44,7 @@ struct PDFSignView: View {
                     }
                     DropWell(model: model)
                     if !model.files.isEmpty { FileList(model: model) }
+                    MetadataPanel(fields: info)
 
                     if displayImage != nil {
                         signaturePanel
@@ -212,9 +214,10 @@ struct PDFSignView: View {
 
     private func load() {
         placeRect = []; saved = nil; model.error = nil; pageIndex = 0
-        guard let url = model.files.first else { basePageCG = nil; displayImage = nil; return }
+        guard let url = model.files.first else { basePageCG = nil; displayImage = nil; info = []; return }
         pageCount = max(1, PDFService.pageCount(url))
         basePageCG = PDFService.renderPageCGImage(url, page: 0)
+        info = FileInfoService.pdfFields(url)
         updatePreview()
     }
     private func step(_ d: Int) {

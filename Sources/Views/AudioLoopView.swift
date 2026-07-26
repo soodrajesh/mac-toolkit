@@ -5,6 +5,7 @@ struct AudioLoopView: View {
     @StateObject private var model = JobModel(types: [.audio], multiple: false)
     @State private var clipDuration: Double?
     @State private var targetMinutes: String = "5"
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ToolScaffold(
@@ -15,6 +16,7 @@ struct AudioLoopView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 if let d = clipDuration {
                     Text("Clip length: \(String(format: "%.1f", d))s")
                         .font(.caption).foregroundStyle(.secondary)
@@ -36,11 +38,12 @@ struct AudioLoopView: View {
     }
 
     private func loadDuration() {
-        clipDuration = nil
+        clipDuration = nil; info = []
         guard let url = model.files.first else { return }
         Task.detached(priority: .userInitiated) {
             let d = try? AudioService.duration(of: url)
-            await MainActor.run { clipDuration = d }
+            let fields = FileInfoService.audioFields(url)
+            await MainActor.run { clipDuration = d; info = fields }
         }
     }
 

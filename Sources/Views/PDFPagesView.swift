@@ -9,6 +9,7 @@ struct PDFPagesView: View {
     @State private var dpi = 150.0
     @State private var imgFormat: ImageService.Format = .png
     @State private var quality = 0.8
+    @State private var info: [MetadataField] = []
 
     enum Op: String, CaseIterable, Identifiable {
         case rotate = "Rotate"
@@ -29,6 +30,7 @@ struct PDFPagesView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 Picker("Operation", selection: $op) {
                     ForEach(Op.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -58,6 +60,10 @@ struct PDFPagesView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+        }
+        .onChange(of: model.files) { _ in
+            guard let first = model.files.first else { info = []; return }
+            info = first.conformsTo(.pdf) ? FileInfoService.pdfFields(first) : FileInfoService.imageFields(first)
         }
     }
 

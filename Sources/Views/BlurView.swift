@@ -9,6 +9,8 @@ struct BlurView: View {
     @State private var pixelate = true
     @State private var intensity = 20.0
     @State private var saved: URL?
+    @State private var detectError: String?
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ScrollView {
@@ -21,6 +23,7 @@ struct BlurView: View {
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
+                MetadataPanel(fields: info)
 
                 if let source {
                     let shown = preview ?? source
@@ -45,10 +48,14 @@ struct BlurView: View {
                         .font(.caption).foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
+                        Button("Auto-detect faces") { detectFaces() }
                         Button("Apply & Save") { save() }
                             .buttonStyle(.borderedProminent).disabled(rects.isEmpty)
                         Button("Clear regions") { rects = [] }.disabled(rects.isEmpty)
                         if !rects.isEmpty { Text("\(rects.count) region\(rects.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary) }
+                    }
+                    if let detectError {
+                        Text(detectError).font(.caption).foregroundStyle(.orange)
                     }
 
                     if let saved {
@@ -61,9 +68,17 @@ struct BlurView: View {
             .padding(20)
         }
         .onChange(of: model.files) { _ in
-            rects = []; saved = nil; preview = nil
+            rects = []; saved = nil; preview = nil; detectError = nil
             source = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
+            info = model.files.first.map { FileInfoService.imageFields($0) } ?? []
         }
+    }
+
+    private func detectFaces() {
+        guard let src = source else { return }
+        let found = FaceDetectionService.detectFaces(src)
+        detectError = found.isEmpty ? "No faces detected" : nil
+        if !found.isEmpty { rects.append(contentsOf: found); updatePreview() }
     }
 
     private func updatePreview() {

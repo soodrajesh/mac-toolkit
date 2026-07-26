@@ -49,10 +49,20 @@ struct ToolScaffold<Options: View, Preview: View>: View {
                         .disabled(model.files.isEmpty || model.isRunning)
                         .buttonStyle(.borderedProminent)
 
-                        if !model.files.isEmpty {
-                            Button("Clear") { model.clear() }.disabled(model.isRunning)
+                        if model.isRunning {
+                            Button("Cancel") { model.cancel() }
+                        } else if !model.files.isEmpty {
+                            Button("Clear") { model.clear() }
                         }
                         Spacer()
+                    }
+
+                    if model.isRunning {
+                        HStack(spacing: 8) {
+                            ProgressView(value: model.progress).frame(width: 220)
+                            Text("\(Int(model.progress * 100))%")
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
                     }
 
                     ResultBar(model: model)
@@ -84,6 +94,52 @@ struct PreviewPane<Content: View>: View {
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// A small "12 pages · 340 KB"-style caption shown under the file list once a
+/// file is selected. `info` is a best-effort lookup (e.g. FileInfoService.*)
+/// that may return nil while metadata can't be read.
+struct MetadataLine: View {
+    let text: String?
+    var body: some View {
+        if let text {
+            Label(text, systemImage: "info.circle")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// A labeled details panel for the selected file's metadata (dimensions/EXIF,
+/// PDF document properties, audio/video codec+bitrate+tags — see
+/// FileInfoService.*Fields). Visible by default so it isn't easy to miss;
+/// collapses to just a summary count once there's a lot to show.
+struct MetadataPanel: View {
+    let fields: [MetadataField]
+    @State private var expanded = true
+
+    var body: some View {
+        if !fields.isEmpty {
+            DisclosureGroup(isExpanded: $expanded) {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(fields) { f in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(f.label).font(.caption).foregroundStyle(.secondary)
+                                .frame(width: 92, alignment: .leading)
+                            Text(f.value).font(.caption).textSelection(.enabled)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            } label: {
+                Label("Details (\(fields.count))", systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.08)))
+            .frame(maxWidth: 460, alignment: .leading)
+        }
     }
 }
 
@@ -141,12 +197,13 @@ struct DropWell: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) {
+        let lock = NSLock()
         var collected: [URL] = []
         let group = DispatchGroup()
         for p in providers {
             group.enter()
             _ = p.loadObject(ofClass: URL.self) { url, _ in
-                if let url { collected.append(url) }
+                if let url { lock.lock(); collected.append(url); lock.unlock() }
                 group.leave()
             }
         }
@@ -156,7 +213,7 @@ struct DropWell: View {
     private func choose() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = model.allowsMultiple
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = model.allowsMultiple
         panel.canChooseFiles = true
         panel.allowedContentTypes = model.allowedTypes
         if panel.runModal() == .OK { model.add(panel.urls) }
@@ -222,6 +279,7 @@ struct FileList: View {
     private func icon(for url: URL) -> String {
         if url.conformsTo(.pdf) { return "doc.richtext" }
         if url.conformsTo(.image) { return "photo" }
+        if url.conformsTo(.movie) { return "film" }
         if url.conformsTo(.audio) { return "waveform" }
         return "doc"
     }

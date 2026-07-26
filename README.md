@@ -65,12 +65,15 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **PDF Pages** — rotate, delete, extract pages; PDF → images; images → PDF.
 - **PDF Security** — add/remove password, diagonal watermark.
 - **Page Numbers** — stamp page numbers/labels (`{n}`, `{total}`) at any corner/edge.
+- **Crop / Trim Margins** — *batch*: trim whitespace margins from every page by a
+  percentage (uniform or per-side); lossless (sets the PDF crop box).
 - **Convert & Compress** — *batch*: many images at once → change format (incl.
   HEIC → JPEG), compress by quality, cap max size, EXIF/GPS always stripped.
 - **Image Editor** — *single image*: crop with draggable handles, rotate, flip,
   Paint-style Resize & Skew (percentage or pixels, keep aspect), live selection +
   output-size readout.
-- **Blur / Pixelate** — drag over regions to hide faces/addresses/numbers, with live preview.
+- **Blur / Pixelate** — drag over regions to hide faces/addresses/numbers, with live
+  preview, or click **Auto-detect faces** (Vision) to find and add them automatically.
 - **Redact** — permanently black out regions in a PDF or image (content underneath
   is destroyed, not just covered); choose fill color, live preview, multi-page PDF support.
 - **Collage** — Grid / Horizontal / Vertical for uniform layouts, or **Freeform**: an
@@ -79,13 +82,25 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **Icon Generator** — image → favicon.ico + full PNG set (16–1024) + AppIcon.icns.
 - **Remove Background** — one-click subject cutout (Vision, macOS 14+); keep it
   transparent or drop in a new **solid color / image** background, with live preview.
-- **QR Code** — generate from text/URL (save PNG) and read/decode from images.
+- **Watermark** — *batch*: stamp a text or logo watermark onto many images at once,
+  at a corner/center or tiled, with adjustable size and opacity.
+- **Barcode / QR** — generate QR / Code 128 / PDF417 / Aztec (save PNG), and
+  read/decode any supported symbology from an image.
 - **OCR / Text** — extract text from scanned PDFs/images, or build a **searchable
   PDF** (invisible selectable text layer) — on-device (Vision).
 - **Video Downloader** — *batch*: paste multiple video URLs (YouTube, TikTok, Instagram,
   Twitch, etc.) and download them as MP4 videos or extract audio as MP3 files.
   Choose quality presets (720p, 480p, etc. for video; 128/192/320 kbps for audio).
   Requires `yt-dlp` and `ffmpeg`.
+- **Convert & Compress Video** — *batch*: re-encode local video files to MP4 at a
+  target quality/resolution. Native AVFoundation; falls back to `ffmpeg` (if
+  installed) for codecs it can't re-encode (e.g. VP9/AV1 from high-res YouTube
+  downloads). Preview pane has a real play/pause/scrub player (falls back to a
+  static frame if the codec can't be decoded for playback either); shows a real
+  progress % while processing, not just a spinner.
+- **Extract Audio (video)** — *batch*: pull the audio track out of local video
+  files as M4A (native AVFoundation) or MP3 (via ffmpeg — AVFoundation has no MP3
+  encoder). Same live preview player and real progress %.
 - **Trim Audio** — load one audio file, drag on the waveform to draw one or more
   cut regions (pinch to zoom for precision), play/pause with a click-to-seek
   playhead to find exact points, then **Extract Selected** (keep only the
@@ -114,20 +129,36 @@ The Compress PDF tool auto-detects it and shows a "Ghostscript detected" badge.
 Sources/
   App.swift, Tool.swift, Support.swift
   Components/  JobModel.swift, ToolScaffold.swift, RegionSelector.swift,
-               WaveformView.swift, AudioPlayerController.swift
-               (drop well, numbered file list, output picker, interactive canvas)
+               WaveformView.swift, AudioPlayerController.swift, VideoPreviewPlayer.swift
+               (drop well, numbered file list, output picker, interactive canvas,
+               details/metadata panel, play/pause/scrub video preview)
   Services/    PDFService, ImageService, ImageEditService, CollageService,
                FreeformService, BackgroundService, IconService, QRService,
-               OCRService, Ghostscript, AudioService
+               OCRService, Ghostscript, AudioService, VideoService,
+               WatermarkService, FaceDetectionService, FileInfoService
   Views/       one per sidebar tool
 ```
 
-Shared UX: numbered drag/arrow-reorderable file lists, right-side or in-place live
-previews on image tools, a remembered output folder (persisted across launches),
-and collapsible sidebar sections (click a section header to expand/collapse;
-remembered across launches).
+Shared UX: numbered drag/arrow-reorderable file lists (drop a folder to add every
+matching file inside it, recursively), a collapsible **Details** panel showing
+per-file metadata once a file is selected (dimensions/EXIF for images, document
+properties for PDFs, codec/bitrate/tags for audio & video), right-side or in-place
+live previews, a remembered output folder (persisted across launches), a real
+progress bar + **Cancel** button for batch jobs in progress, and collapsible
+sidebar sections (click a section header to expand/collapse; remembered across
+launches).
+
+Video playback (both the Convert/Extract Audio preview and any future video
+work) is built on plain `AVFoundation` + `AVPlayerLayer`, not AVKit's SwiftUI
+`VideoPlayer` — that view's private companion framework crashes at runtime in
+this project's non-Xcode `swiftc` build (no proper framework embedding). If a
+future macOS toolchain fixes that, it isn't necessary to fix here, so this is a
+deliberate constraint, not an oversight.
 
 ## Ideas for later
 
-Sign PDF (draw/type signature), PDF metadata editor, extract embedded images, Freeform
-snap/alignment guides, single-image text stamp in Image Editor, ⌘O/⌘S menu commands.
+Extract embedded images, Freeform snap/alignment guides, single-image text stamp in
+Image Editor, ⌘S menu command, real per-file progress % for PDF/image batch tools
+(currently only Convert & Compress Video / Extract Audio report true progress —
+the rest jump straight to 100% since each file finishes in well under a second),
+`CFBundleDocumentTypes` + codesigning for "Open With" / Gatekeeper-friendly sharing.

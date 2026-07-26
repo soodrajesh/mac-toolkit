@@ -7,6 +7,7 @@ struct PDFSecurityView: View {
     @State private var password = ""
     @State private var watermarkText = "CONFIDENTIAL"
     @State private var opacity = 0.3
+    @State private var info: [MetadataField] = []
 
     enum Op: String, CaseIterable, Identifiable {
         case encrypt = "Add password"
@@ -24,6 +25,7 @@ struct PDFSecurityView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 Picker("Action", selection: $op) {
                     ForEach(Op.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented)
@@ -50,6 +52,7 @@ struct PDFSecurityView: View {
                 }
             }
         }
+        .onChange(of: model.files) { _ in info = model.files.first.map { FileInfoService.pdfFields($0) } ?? [] }
     }
 
     private var runLabel: String {
@@ -67,6 +70,7 @@ struct PDFSecurityView: View {
         model.run { files in
             var r = JobResult()
             for url in files {
+                if Task.isCancelled { break }
                 do {
                     switch operation {
                     case .encrypt:

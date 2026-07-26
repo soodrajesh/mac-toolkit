@@ -7,6 +7,7 @@ struct IconGeneratorView: View {
     @State private var ico = true
     @State private var icns = true
     @State private var square: NSImage?
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ToolScaffold(
@@ -23,6 +24,7 @@ struct IconGeneratorView: View {
             }
         ) {
             VStack(alignment: .leading, spacing: 8) {
+                MetadataPanel(fields: info)
                 Toggle("PNG set (16–1024 px)", isOn: $pngs)
                 Toggle("favicon.ico (multi-resolution)", isOn: $ico)
                 Toggle("AppIcon.icns (macOS)", isOn: $icns)
@@ -34,6 +36,7 @@ struct IconGeneratorView: View {
             square = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
                 .map { IconService.square($0) }
                 .map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
+            info = model.files.first.map { FileInfoService.imageFields($0) } ?? []
         }
     }
 

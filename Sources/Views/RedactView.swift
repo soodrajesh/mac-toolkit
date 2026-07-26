@@ -11,6 +11,7 @@ struct RedactView: View {
     @State private var rectsByPage: [Int: [CGRect]] = [:]
     @State private var saved: URL?
     @State private var fillColor: Color = .black
+    @State private var info: [MetadataField] = []
 
     private var currentRects: Binding<[CGRect]> {
         Binding(get: { rectsByPage[pageIndex] ?? [] },
@@ -28,6 +29,7 @@ struct RedactView: View {
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
+                MetadataPanel(fields: info)
 
                 if let displayImage {
                     if isPDF && pageCount > 1 {
@@ -89,14 +91,16 @@ struct RedactView: View {
 
     private func load() {
         rectsByPage = [:]; pageIndex = 0; saved = nil; model.error = nil
-        guard let url = model.files.first else { baseCG = nil; displayImage = nil; return }
+        guard let url = model.files.first else { baseCG = nil; displayImage = nil; info = []; return }
         isPDF = url.conformsTo(.pdf)
         if isPDF {
             pageCount = max(1, PDFService.pageCount(url))
             baseCG = PDFService.renderPageCGImage(url, page: 0)
+            info = FileInfoService.pdfFields(url)
         } else {
             pageCount = 1
             baseCG = try? ImageService.loadCGImage(url)
+            info = FileInfoService.imageFields(url)
         }
         updatePreview()
     }

@@ -23,6 +23,12 @@ enum OutputPath {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(ext)
     }
+
+    /// Swaps a URL's extension (e.g. when a chosen output format turns out to
+    /// need a different container than originally planned).
+    static func retype(_ url: URL, ext: String) -> URL {
+        url.deletingPathExtension().appendingPathExtension(ext)
+    }
 }
 
 extension Int64 {

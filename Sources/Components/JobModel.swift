@@ -20,6 +20,7 @@ final class JobModel: ObservableObject {
     @Published var result: JobResult?
     @Published var error: String?
 
+    private var task: Task<Void, Never>?
     let allowedTypes: [UTType]
     let allowsMultiple: Bool
 
@@ -35,7 +36,21 @@ final class JobModel: ObservableObject {
     }
 
     func add(_ urls: [URL]) {
-        let matching = urls.filter { url in
+        let expanded = urls.flatMap { url -> [URL] in
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else {
+                return [url]
+            }
+            guard let e = FileManager.default.enumerator(
+                at: url, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]) else { return [] }
+            return e.compactMap { obj -> URL? in
+                guard let u = obj as? URL else { return nil }
+                let isSubDir = (try? u.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                return isSubDir ? nil : u
+            }
+        }
+        let matching = expanded.filter { url in
             allowedTypes.contains { url.conformsTo($0) }
         }
         let toAdd = allowsMultiple ? matching : Array(matching.prefix(1))
@@ -51,25 +66,45 @@ final class JobModel: ObservableObject {
     func moveDown(_ url: URL) { if let i = files.firstIndex(of: url), i < files.count - 1 { files.swapAt(i, i + 1) } }
 
     /// Runs `work` off the main actor, funnelling result/error/running state.
+    /// `work` should check `Task.isCancelled` between files in multi-file loops
+    /// so `cancel()` can stop a batch early.
     func run(_ work: @escaping @Sendable ([URL]) throws -> JobResult) {
+        runWithProgress { files, _ in try work(files) }
+    }
+
+    /// Like `run`, but `work` also receives a `report(0...1)` callback for
+    /// operations where real progress (not just "done or not") is meaningful
+    /// to show — e.g. a slow video export. Safe to call from any thread.
+    func runWithProgress(_ work: @escaping @Sendable ([URL], @escaping @Sendable (Double) -> Void) throws -> JobResult) {
         guard !files.isEmpty else { error = "No files selected"; return }
         let input = files
         isRunning = true; error = nil; result = nil; progress = 0
         status = "Working…"
-        Task.detached(priority: .userInitiated) {
+        task = Task.detached(priority: .userInitiated) { [weak self] in
+            let report: @Sendable (Double) -> Void = { p in
+                Task { @MainActor [weak self] in self?.progress = min(1, max(0, p)) }
+            }
             do {
-                let r = try work(input)
+                let r = try work(input, report)
                 await MainActor.run {
+                    guard let self else { return }
                     self.result = r; self.isRunning = false; self.progress = 1
-                    self.status = "Done"
+                    self.status = Task.isCancelled ? "Cancelled" : "Done"
                 }
             } catch {
                 await MainActor.run {
+                    guard let self else { return }
                     self.error = error.localizedDescription; self.isRunning = false
                     self.status = ""
                 }
             }
         }
+    }
+
+    /// Requests cancellation of the running job. Batch loops that check
+    /// `Task.isCancelled` will stop after the current file.
+    func cancel() {
+        task?.cancel()
     }
 }
 

@@ -10,6 +10,7 @@ struct AudioTrimView: View {
     @State private var selectedID: CutRegion.ID?
     @State private var mode: AudioService.ExtractMode = .extract
     @State private var loadError: String?
+    @State private var info: [MetadataField] = []
 
     private static let bucketCount = 400
 
@@ -22,6 +23,7 @@ struct AudioTrimView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 if duration > 0 {
                     WaveformView(peaks: peaks, duration: duration, regions: $regions,
                                  selectedID: $selectedID, playheadTime: player.currentTime,
@@ -129,7 +131,7 @@ struct AudioTrimView: View {
     }
 
     private func loadFile() {
-        duration = 0; peaks = []; regions = []; selectedID = nil; loadError = nil
+        duration = 0; peaks = []; regions = []; selectedID = nil; loadError = nil; info = []
         player.stop()
         guard let url = model.files.first else { return }
         player.load(url: url)
@@ -138,9 +140,11 @@ struct AudioTrimView: View {
             do {
                 let d = try AudioService.duration(of: url)
                 let p = try AudioService.peaks(of: url, bucketCount: bucketCount)
+                let fields = FileInfoService.audioFields(url)
                 await MainActor.run {
                     duration = d
                     peaks = p
+                    info = fields
                 }
             } catch {
                 await MainActor.run { loadError = error.localizedDescription }

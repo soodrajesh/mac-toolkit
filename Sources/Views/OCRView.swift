@@ -12,6 +12,7 @@ struct OCRView: View {
     @State private var text = ""
     @State private var output: Output = .text
     @State private var pdfResult: URL?
+    @State private var info: [MetadataField] = []
 
     var body: some View {
         ScrollView {
@@ -24,6 +25,7 @@ struct OCRView: View {
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
+                MetadataPanel(fields: info)
 
                 Picker("Output", selection: $output) {
                     ForEach(Output.allCases) { Text($0.rawValue).tag($0) }
@@ -72,6 +74,10 @@ struct OCRView: View {
                 }
             }
             .padding(20)
+        }
+        .onChange(of: model.files) { _ in
+            guard let first = model.files.first else { info = []; return }
+            info = first.conformsTo(.pdf) ? FileInfoService.pdfFields(first) : FileInfoService.imageFields(first)
         }
     }
 

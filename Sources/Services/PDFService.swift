@@ -98,6 +98,26 @@ enum PDFService {
         guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
     }
 
+    /// Crops each page's visible area by insetting from its media box, as a
+    /// percentage of width (left/right) and height (top/bottom). Underlying
+    /// content is untouched — this sets the PDF crop box, a lossless, reversible
+    /// view window (viewers/printers honor it; some PDF tools ignore it and show
+    /// the full page, which is expected PDF crop-box behavior, not a bug).
+    static func cropMargins(_ url: URL, left: Double, right: Double, top: Double, bottom: Double, to output: URL) throws {
+        let doc = try open(url)
+        guard doc.pageCount > 0 else { throw JobError.emptyInput }
+        for i in 0..<doc.pageCount {
+            guard let page = doc.page(at: i) else { continue }
+            let b = page.bounds(for: .mediaBox)
+            let l = b.width * CGFloat(left / 100), r = b.width * CGFloat(right / 100)
+            let t = b.height * CGFloat(top / 100), bo = b.height * CGFloat(bottom / 100)
+            let cropped = CGRect(x: b.minX + l, y: b.minY + bo, width: b.width - l - r, height: b.height - t - bo)
+            guard cropped.width > 1, cropped.height > 1 else { continue }
+            page.setBounds(cropped, for: .cropBox)
+        }
+        guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
     /// Extracts the given 1-based pages (in order) into a new PDF.
     static func extract(_ url: URL, pages: [Int], to output: URL) throws {
         let doc = try open(url)

@@ -5,6 +5,7 @@ struct PDFSplitView: View {
     @StateObject private var model = JobModel(types: [.pdf], multiple: false)
     @State private var mode: Mode = .eachPage
     @State private var ranges = "1-3, 4-6"
+    @State private var info: [MetadataField] = []
 
     enum Mode: String, CaseIterable, Identifiable {
         case eachPage = "One file per page"
@@ -21,6 +22,7 @@ struct PDFSplitView: View {
             onRun: run
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                MetadataPanel(fields: info)
                 Picker("Mode", selection: $mode) {
                     ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -36,6 +38,7 @@ struct PDFSplitView: View {
                 }
             }
         }
+        .onChange(of: model.files) { _ in info = model.files.first.map { FileInfoService.pdfFields($0) } ?? [] }
     }
 
     private func run() {

@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct PDFMergeView: View {
     @StateObject private var model = JobModel(types: [.pdf])
+    @State private var info: String?
 
     var body: some View {
         ToolScaffold(
@@ -12,8 +13,16 @@ struct PDFMergeView: View {
             runLabel: "Merge",
             onRun: run
         ) {
-            EmptyView()
+            MetadataLine(text: info)
         }
+        .onChange(of: model.files) { _ in updateInfo() }
+    }
+
+    private func updateInfo() {
+        guard !model.files.isEmpty else { info = nil; return }
+        let totalPages = model.files.reduce(0) { $0 + PDFService.pageCount($1) }
+        let totalBytes = model.files.reduce(Int64(0)) { $0 + $1.fileSize }
+        info = "\(model.files.count) file\(model.files.count == 1 ? "" : "s") · \(totalPages) page\(totalPages == 1 ? "" : "s") total · \(totalBytes.humanBytes) total"
     }
 
     private func run() {
