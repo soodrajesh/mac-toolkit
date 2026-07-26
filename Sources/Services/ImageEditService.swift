@@ -124,6 +124,43 @@ enum ImageEditService {
         return ctx.makeImage()
     }
 
+    enum StampAnchor: String, CaseIterable, Identifiable {
+        case topLeft = "Top left", topCenter = "Top center", topRight = "Top right"
+        case center = "Center"
+        case bottomLeft = "Bottom left", bottomCenter = "Bottom center", bottomRight = "Bottom right"
+        var id: String { rawValue }
+    }
+
+    /// Draws a text label onto the image at an anchor position.
+    static func stampText(_ cg: CGImage, text: String, fontName: String, fontFrac: Double,
+                          color: NSColor, bold: Bool, italic: Bool, anchor: StampAnchor) -> CGImage? {
+        guard !text.isEmpty else { return cg }
+        let w = cg.width, h = cg.height
+        guard let ctx = context(w, h) else { return nil }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let font = FreeformService.makeFont(fontName, size: CGFloat(fontFrac) * CGFloat(w), bold: bold, italic: italic)
+        let attr = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
+        let ts = attr.size()
+        let m = CGFloat(w) * 0.03
+        let x: CGFloat
+        switch anchor {
+        case .topLeft, .bottomLeft: x = m
+        case .topRight, .bottomRight: x = CGFloat(w) - ts.width - m
+        case .topCenter, .bottomCenter, .center: x = (CGFloat(w) - ts.width) / 2
+        }
+        let y: CGFloat   // bottom-left origin
+        switch anchor {
+        case .bottomLeft, .bottomCenter, .bottomRight: y = m
+        case .topLeft, .topCenter, .topRight: y = CGFloat(h) - ts.height - m
+        case .center: y = (CGFloat(h) - ts.height) / 2
+        }
+        let nsCtx = NSGraphicsContext(cgContext: ctx, flipped: false)
+        NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = nsCtx
+        attr.draw(at: CGPoint(x: x, y: y))
+        NSGraphicsContext.restoreGraphicsState()
+        return ctx.makeImage()
+    }
+
     /// Normalized top-left rect → pixel rect in CGContext (bottom-left origin) space.
     private static func pixelRect(_ r: CGRect, _ w: Int, _ h: Int) -> CGRect {
         let W = CGFloat(w), H = CGFloat(h)

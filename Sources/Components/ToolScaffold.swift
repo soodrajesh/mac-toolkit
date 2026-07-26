@@ -60,6 +60,9 @@ struct ToolScaffold<Options: View, Preview: View>: View {
                 .padding(20)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .onReceive(NotificationCenter.default.publisher(for: .runTool)) { _ in
+                if !model.isRunning, !model.files.isEmpty { onRun() }
+            }
 
             if hasPreview {
                 Divider()
@@ -134,6 +137,7 @@ struct DropWell: View {
         .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
             handleDrop(providers); return true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openFiles)) { _ in choose() }
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) {

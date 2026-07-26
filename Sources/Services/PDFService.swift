@@ -275,6 +275,49 @@ enum PDFService {
         guard idx > 0, out.write(to: output) else { throw JobError.cannotWrite(output) }
     }
 
+    // MARK: Metadata
+
+    struct Meta { var title = "", author = "", subject = "", keywords = "", creator = "" }
+
+    static func readMetadata(_ url: URL) -> Meta {
+        guard let doc = PDFDocument(url: url) else { return Meta() }
+        let a = doc.documentAttributes ?? [:]
+        func s(_ k: PDFDocumentAttribute) -> String { (a[k] as? String) ?? "" }
+        var kw = ""
+        if let arr = a[PDFDocumentAttribute.keywordsAttribute] as? [String] { kw = arr.joined(separator: ", ") }
+        else { kw = a[PDFDocumentAttribute.keywordsAttribute] as? String ?? "" }
+        return Meta(title: s(.titleAttribute), author: s(.authorAttribute),
+                    subject: s(.subjectAttribute), keywords: kw, creator: s(.creatorAttribute))
+    }
+
+    static func writeMetadata(_ url: URL, _ m: Meta, to output: URL) throws {
+        guard let doc = PDFDocument(url: url) else { throw JobError.cannotOpen(url) }
+        var a = doc.documentAttributes ?? [:]
+        a[PDFDocumentAttribute.titleAttribute] = m.title
+        a[PDFDocumentAttribute.authorAttribute] = m.author
+        a[PDFDocumentAttribute.subjectAttribute] = m.subject
+        a[PDFDocumentAttribute.creatorAttribute] = m.creator
+        a[PDFDocumentAttribute.keywordsAttribute] =
+            m.keywords.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        doc.documentAttributes = a
+        guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
+    // MARK: Sign (image stamp)
+
+    /// Stamps `image` onto `pageIndex` at a normalized (top-left) rect, as an overlay
+    /// annotation (page text preserved).
+    static func stampImage(_ url: URL, image: CGImage, pageIndex: Int, rect: CGRect, to output: URL) throws {
+        let doc = try open(url)
+        guard let page = doc.page(at: pageIndex) else { throw JobError.badInput("Invalid page") }
+        let b = page.bounds(for: .mediaBox)
+        let w = rect.width * b.width, h = rect.height * b.height
+        let x = b.minX + rect.minX * b.width
+        let y = b.minY + b.height - rect.minY * b.height - h
+        page.addAnnotation(ImageStampAnnotation(bounds: CGRect(x: x, y: y, width: w, height: h), image: image))
+        guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+
     // MARK: Security
 
     /// Adds a password. Both user (open) and owner (permissions) passwords set.
@@ -326,6 +369,19 @@ enum PDFService {
             page.addAnnotation(annot)
         }
         guard doc.write(to: output) else { throw JobError.cannotWrite(output) }
+    }
+}
+
+/// A PDF annotation that draws an image within its bounds (signatures, stamps).
+final class ImageStampAnnotation: PDFAnnotation {
+    private let image: CGImage
+    init(bounds: CGRect, image: CGImage) {
+        self.image = image
+        super.init(bounds: bounds, forType: .stamp, withProperties: nil)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+    override func draw(with box: PDFDisplayBox, in context: CGContext) {
+        context.draw(image, in: bounds)
     }
 }
 

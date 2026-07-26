@@ -19,6 +19,16 @@ struct ImageEditView: View {
     @State private var skewH = 0.0
     @State private var skewV = 0.0
 
+    // Text overlay
+    @State private var addText = false
+    @State private var overlayText = "Sample"
+    @State private var textFont = "Helvetica Neue"
+    @State private var textFrac = 0.06
+    @State private var textColor: Color = .white
+    @State private var textBold = false
+    @State private var textItalic = false
+    @State private var textAnchor: ImageEditService.StampAnchor = .bottomRight
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -28,7 +38,8 @@ struct ImageEditView: View {
                 if !model.files.isEmpty { FileList(model: model) }
 
                 if let working {
-                    let ns = NSImage(cgImage: working, size: NSSize(width: working.width, height: working.height))
+                    let shown = finalCG(working)
+                    let ns = NSImage(cgImage: shown, size: NSSize(width: shown.width, height: shown.height))
                     HStack(spacing: 8) {
                         Button { rotate(-1) } label: { Image(systemName: "rotate.left") }
                         Button { rotate(1) } label: { Image(systemName: "rotate.right") }
@@ -62,6 +73,7 @@ struct ImageEditView: View {
                     .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
 
                     resizeSkewPanel
+                    textPanel
 
                     HStack {
                         Picker("Format", selection: $format) {
@@ -123,6 +135,38 @@ struct ImageEditView: View {
             .padding(6)
         } label: { Text("Resize & Skew").font(.callout).bold() }
         .frame(maxWidth: 420, alignment: .leading)
+    }
+
+    private var textPanel: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Add text overlay", isOn: $addText).onChange(of: addText) { _ in updateEstimate() }
+                if addText {
+                    TextField("Text", text: $overlayText).textFieldStyle(.roundedBorder).frame(width: 300)
+                    HStack {
+                        Picker("Font", selection: $textFont) {
+                            ForEach(CollageView.fonts, id: \.self) { Text($0).font(.custom($0, size: 13)).tag($0) }
+                        }.frame(width: 180)
+                        ColorPicker("", selection: $textColor, supportsOpacity: false).labelsHidden()
+                        Toggle("B", isOn: $textBold).toggleStyle(.button).fontWeight(.bold)
+                        Toggle("I", isOn: $textItalic).toggleStyle(.button).italic()
+                    }
+                    HStack { Text("Size").foregroundStyle(.secondary); Slider(value: $textFrac, in: 0.02...0.25).frame(width: 180) }
+                    Picker("Position", selection: $textAnchor) {
+                        ForEach(ImageEditService.StampAnchor.allCases) { Text($0.rawValue).tag($0) }
+                    }.frame(width: 220)
+                }
+            }.padding(6)
+        } label: { Label("Text", systemImage: "textformat").font(.callout).bold() }
+        .frame(maxWidth: 460, alignment: .leading)
+    }
+
+    /// Applies the text overlay (if enabled) on top of the working image.
+    private func finalCG(_ base: CGImage) -> CGImage {
+        guard addText, !overlayText.isEmpty else { return base }
+        return ImageEditService.stampText(base, text: overlayText, fontName: textFont, fontFrac: textFrac,
+                                          color: NSColor(textColor), bold: textBold, italic: textItalic,
+                                          anchor: textAnchor) ?? base
     }
 
     private func field(_ title: String, value: Binding<Double>, unit: String,
@@ -188,13 +232,13 @@ struct ImageEditView: View {
     }
     private func updateEstimate() {
         guard let out = working else { estimatedBytes = nil; return }
-        estimatedBytes = ImageService.encodeData(out, format: format, quality: quality)?.count
+        estimatedBytes = ImageService.encodeData(finalCG(out), format: format, quality: quality)?.count
     }
 
     private func save() {
         guard let out = working, let src = model.files.first else { return }
         let url = OutputPath.make(for: src, dir: model.outputDir, suffix: "-edited", ext: format.ext)
-        do { try ImageService.write(out, to: url, format: format, quality: quality); saved = url }
+        do { try ImageService.write(finalCG(out), to: url, format: format, quality: quality); saved = url }
         catch { model.error = error.localizedDescription }
     }
 

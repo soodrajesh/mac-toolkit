@@ -42,3 +42,10 @@ func revealInFinder(_ urls: [URL]) {
     guard !urls.isEmpty else { return }
     NSWorkspace.shared.activateFileViewerSelecting(urls)
 }
+
+extension Notification.Name {
+    /// Posted by ⌘O — the visible tool's drop well opens a file panel.
+    static let openFiles = Notification.Name("toolbox.openFiles")
+    /// Posted by ⌘R — the visible batch tool runs.
+    static let runTool = Notification.Name("toolbox.runTool")
+}

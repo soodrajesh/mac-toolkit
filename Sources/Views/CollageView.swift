@@ -16,6 +16,8 @@ struct CollageView: View {
     @State private var aspect: CanvasAspect = .fourThree
     @State private var moveBaseline: CGPoint?
     @State private var availWidth: CGFloat = 700
+    @State private var snapX = false      // element x snapped to canvas center
+    @State private var snapY = false
     private let space = "collageCanvas"
 
     static let fonts = ["Helvetica Neue", "Helvetica", "Arial", "Avenir Next", "Georgia",
@@ -175,6 +177,8 @@ struct CollageView: View {
             ZStack {
                 Rectangle().fill(white ? Color.white : Color.black)
                 ForEach($items) { $it in itemLayer($it, dW: cw, dH: ch) }
+                if snapX { Rectangle().fill(Color.pink).frame(width: 1).frame(maxHeight: .infinity) }
+                if snapY { Rectangle().fill(Color.pink).frame(height: 1).frame(maxWidth: .infinity) }
             }
             .frame(width: cw, height: ch)
             .coordinateSpace(name: space)
@@ -246,9 +250,16 @@ struct CollageView: View {
                 var c = moveBaseline!
                 c.x = min(max(c.x + (v.location.x - v.startLocation.x) / dW, 0), 1)
                 c.y = min(max(c.y + (v.location.y - v.startLocation.y) / dH, 0), 1)
+                // Snap to canvas center / edges with a small threshold.
+                let t: CGFloat = 0.012
+                snapX = false; snapY = false
+                for target in [0.0, 0.5, 1.0] {
+                    if abs(c.x - target) < t { c.x = target; if target == 0.5 { snapX = true } }
+                    if abs(c.y - target) < t { c.y = target; if target == 0.5 { snapY = true } }
+                }
                 it.wrappedValue.center = c
             }
-            .onEnded { _ in moveBaseline = nil }
+            .onEnded { _ in moveBaseline = nil; snapX = false; snapY = false }
     }
     private func resizeGesture(_ it: Binding<Element>, dW: CGFloat, dH: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 1, coordinateSpace: .named(space))

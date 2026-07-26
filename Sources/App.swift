@@ -26,6 +26,16 @@ struct ToolboxApp: App {
             .navigationTitle("Toolbox")
         }
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Open…") { NotificationCenter.default.post(name: .openFiles, object: nil) }
+                    .keyboardShortcut("o", modifiers: .command)
+            }
+            CommandMenu("Tool") {
+                Button("Run / Process") { NotificationCenter.default.post(name: .runTool, object: nil) }
+                    .keyboardShortcut("r", modifiers: .command)
+            }
+        }
     }
 
     @ViewBuilder
@@ -37,6 +47,7 @@ struct ToolboxApp: App {
         case .pdfPages:    PDFPagesView()
         case .pdfSecurity: PDFSecurityView()
         case .pdfNumbers:  PDFPageNumbersView()
+        case .pdfMeta:     PDFMetadataView()
         case .imageTools:  ImageToolsView()
         case .imageEdit:   ImageEditView()
         case .blur:        BlurView()
