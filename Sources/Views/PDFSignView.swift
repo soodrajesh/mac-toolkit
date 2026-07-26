@@ -52,6 +52,8 @@ struct PDFSignView: View {
                             Button("Apply Signature") { apply() }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(placeRect.isEmpty || !hasSignature)
+                            Button { placeRect = []; updatePreview() } label: { Label("Remove box", systemImage: "trash") }
+                                .disabled(placeRect.isEmpty)
                             if let saved {
                                 Button { revealInFinder([saved]) } label: {
                                     Label("Signed — Reveal in Finder", systemImage: "checkmark.circle.fill")
@@ -133,7 +135,12 @@ struct PDFSignView: View {
                         .frame(width: padSize.width, height: padSize.height)
                         .background(Color.white)
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.gray.opacity(0.4)))
-                    Button("Clear") { strokes = [] }.disabled(strokes.isEmpty)
+                    HStack(spacing: 8) {
+                        Button { if !strokes.isEmpty { strokes.removeLast() } } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
+                            .disabled(strokes.isEmpty)
+                        Button { strokes = [] } label: { Label("Clear", systemImage: "xmark") }
+                            .disabled(strokes.isEmpty)
+                    }
                 } else {
                     TextField("Signature text", text: $typed).textFieldStyle(.roundedBorder).frame(width: 300)
                     Picker("Font", selection: $scriptFont) {
