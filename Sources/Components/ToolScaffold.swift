@@ -185,9 +185,9 @@ struct FileList: View {
         HStack(spacing: 8) {
             if model.allowsMultiple {
                 HStack(spacing: 2) {
-                    Button { model.moveUp(url) } label: { Image(systemName: "chevron.up") }
+                    Button { model.moveUp(url) } label: { Image(systemName: "arrow.up") }
                         .disabled(idx == 0)
-                    Button { model.moveDown(url) } label: { Image(systemName: "chevron.down") }
+                    Button { model.moveDown(url) } label: { Image(systemName: "arrow.down") }
                         .disabled(idx == model.files.count - 1)
                 }
                 .buttonStyle(.borderless).font(.caption).foregroundStyle(.secondary)
