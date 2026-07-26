@@ -472,7 +472,12 @@ final class ImageStampAnnotation: PDFAnnotation {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
     override func draw(with box: PDFDisplayBox, in context: CGContext) {
-        context.draw(image, in: bounds)
+        // Aspect-fit the image within bounds so it isn't stretched.
+        let s = CGSize(width: image.width, height: image.height)
+        guard s.width > 0, s.height > 0 else { return }
+        let scale = min(bounds.width / s.width, bounds.height / s.height)
+        let w = s.width * scale, h = s.height * scale
+        context.draw(image, in: CGRect(x: bounds.midX - w / 2, y: bounds.midY - h / 2, width: w, height: h))
     }
 }
 

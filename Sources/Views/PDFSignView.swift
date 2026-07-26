@@ -5,7 +5,8 @@ struct PDFSignView: View {
     @StateObject private var model = JobModel(types: [.pdf], multiple: false)
     @State private var pageIndex = 0
     @State private var pageCount = 1
-    @State private var pageImage: NSImage?
+    @State private var basePageCG: CGImage?
+    @State private var displayImage: NSImage?
     @State private var placeRect: [CGRect] = []
     @State private var saved: URL?
 
@@ -30,7 +31,7 @@ struct PDFSignView: View {
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
 
-                if let pageImage {
+                if let displayImage {
                     if pageCount > 1 {
                         HStack {
                             Button { step(-1) } label: { Image(systemName: "chevron.left") }.disabled(pageIndex == 0)
@@ -39,14 +40,21 @@ struct PDFSignView: View {
                             Spacer()
                         }
                     }
-                    RegionSelector(image: pageImage, rects: $placeRect, singleSelection: true)
+                    RegionSelector(image: displayImage, rects: $placeRect, singleSelection: true)
                         .frame(height: 560)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
-                    Text(placeRect.isEmpty ? "Drag a box where the signature should go." : "Signature area set — Apply below.")
+                        .onChange(of: placeRect) { _ in updatePreview() }
+                    Text(placeRect.isEmpty ? "Drag a box where the signature should go — you'll see it there before saving."
+                                           : "Preview shown in the box. Adjust the box or signature, then Apply.")
                         .font(.caption).foregroundStyle(.secondary)
 
                     signaturePanel
+                        .onChange(of: strokes) { _ in updatePreview() }
+                        .onChange(of: typed) { _ in updatePreview() }
+                        .onChange(of: scriptFont) { _ in updatePreview() }
+                        .onChange(of: inkColor) { _ in updatePreview() }
+                        .onChange(of: mode) { _ in updatePreview() }
 
                     HStack(spacing: 10) {
                         Button("Apply Signature") { apply() }
@@ -103,14 +111,37 @@ struct PDFSignView: View {
 
     private func load() {
         placeRect = []; saved = nil; model.error = nil; pageIndex = 0
-        guard let url = model.files.first else { pageImage = nil; return }
+        guard let url = model.files.first else { basePageCG = nil; displayImage = nil; return }
         pageCount = max(1, PDFService.pageCount(url))
-        pageImage = PDFService.renderPageImage(url, page: 0)
+        basePageCG = PDFService.renderPageCGImage(url, page: 0)
+        updatePreview()
     }
     private func step(_ d: Int) {
         guard let url = model.files.first else { return }
         pageIndex = min(max(0, pageIndex + d), pageCount - 1)
-        pageImage = PDFService.renderPageImage(url, page: pageIndex)
+        basePageCG = PDFService.renderPageCGImage(url, page: pageIndex)
+        updatePreview()
+    }
+
+    /// Composites the current signature into the placement box for a live preview.
+    private func updatePreview() {
+        guard let base = basePageCG else { displayImage = nil; return }
+        guard let rect = placeRect.first, let sig = signatureImage() else {
+            displayImage = NSImage(cgImage: base, size: NSSize(width: base.width, height: base.height)); return
+        }
+        let w = base.width, h = base.height
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        ctx.draw(base, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let rw = rect.width * CGFloat(w), rh = rect.height * CGFloat(h)
+        let rx = rect.minX * CGFloat(w)
+        let ry = CGFloat(h) - rect.minY * CGFloat(h) - rh   // flip to bottom-left origin
+        let box = CGRect(x: rx, y: ry, width: rw, height: rh)
+        let scale = min(box.width / CGFloat(sig.width), box.height / CGFloat(sig.height))
+        let sw = CGFloat(sig.width) * scale, sh = CGFloat(sig.height) * scale
+        ctx.draw(sig, in: CGRect(x: box.midX - sw / 2, y: box.midY - sh / 2, width: sw, height: sh))
+        if let out = ctx.makeImage() { displayImage = NSImage(cgImage: out, size: NSSize(width: w, height: h)) }
     }
 
     private func apply() {
