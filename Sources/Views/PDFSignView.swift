@@ -132,8 +132,9 @@ struct PDFSignView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Picker("Signature", selection: $mode) { ForEach(Mode.allCases) { Text($0.rawValue).tag($0) } }
-                        .pickerStyle(.segmented).frame(width: 180)
+                        .labelsHidden().pickerStyle(.segmented).frame(width: 200)
                     ColorPicker("Ink", selection: $inkColor, supportsOpacity: false).fixedSize()
+                    Spacer()
                 }
                 if mode == .draw {
                     SignaturePad(strokes: $strokes, color: inkColor)
