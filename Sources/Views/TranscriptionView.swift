@@ -121,10 +121,16 @@ struct TranscriptionView: View {
                     })
                     if let tempFile { try? FileManager.default.removeItem(at: tempFile) }
 
+                    let words = result.text.split(separator: " ").count
+                    guard words > 0 else {
+                        r.failures.append("\(url.lastPathComponent): no speech detected — the on-device recognizer often finds nothing in singing/music-heavy audio, low volume, or unsupported accents.")
+                        report(Double(i + 1) / Double(total))
+                        continue
+                    }
+
                     let txtOut = OutputPath.make(for: url, dir: dir, suffix: "-transcript", ext: "txt")
                     try result.text.write(to: txtOut, atomically: true, encoding: .utf8)
                     r.outputs.append(txtOut)
-                    let words = result.text.split(separator: " ").count
                     r.messages.append("\(url.lastPathComponent): \(words) words")
 
                     if withSRT {
