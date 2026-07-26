@@ -14,22 +14,22 @@ struct YouTubeDownloadView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("YouTube Downloader").font(.title2).bold()
-                    Text("Batch download videos as MP4 or extract audio as MP3.")
+                    Text("Video Downloader").font(.title2).bold()
+                    Text("Batch download videos from any site as MP4 or extract audio as MP3.")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
 
                 if YtDlp.isAvailable {
-                    Label("yt-dlp + ffmpeg detected", systemImage: "checkmark.seal")
+                    Label("yt-dlp + ffmpeg ready", systemImage: "checkmark.seal")
                         .font(.caption).foregroundStyle(.green)
                 } else {
                     Label("yt-dlp/ffmpeg not found — install with `brew install yt-dlp ffmpeg`",
-                          systemImage: "info.circle")
-                        .font(.caption).foregroundStyle(.secondary)
+                          systemImage: "exclamationmark.circle")
+                        .font(.caption).foregroundStyle(.orange)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Paste URLs (one per line)").font(.callout).foregroundStyle(.secondary)
+                    Text("Paste video URLs (one per line)").font(.callout).foregroundStyle(.secondary)
                     TextEditor(text: $pastedURLs)
                         .font(.system(.body, design: .monospaced))
                         .frame(height: 80)

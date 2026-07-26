@@ -15,7 +15,7 @@ struct QueueItem: Identifiable {
 
 @MainActor
 final class DownloadQueueModel: ObservableObject {
-    private static let outputKey = "lastYouTubeOutputDir"
+    private static let outputKey = "lastVideoDownloadOutputDir"
 
     @Published var items: [QueueItem] = []
     @Published var outputDir: URL? {
@@ -41,7 +41,7 @@ final class DownloadQueueModel: ObservableObject {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: true)
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if isValidYouTubeURL(trimmed), !items.contains(where: { $0.sourceURL == trimmed }) {
+            if isValidVideoURL(trimmed), !items.contains(where: { $0.sourceURL == trimmed }) {
                 items.append(QueueItem(sourceURL: trimmed))
             }
         }
@@ -109,17 +109,7 @@ final class DownloadQueueModel: ObservableObject {
         }
     }
 
-    private func isValidYouTubeURL(_ str: String) -> Bool {
-        let patterns = [
-            "youtube\\.com",
-            "youtu\\.be",
-            "m\\.youtube\\.com"
-        ]
-        for pattern in patterns {
-            if str.range(of: pattern, options: .regularExpression) != nil {
-                return true
-            }
-        }
-        return false
+    private func isValidVideoURL(_ str: String) -> Bool {
+        return str.hasPrefix("http://") || str.hasPrefix("https://")
     }
 }

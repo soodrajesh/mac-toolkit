@@ -58,7 +58,7 @@ struct ToolboxApp: App {
         case .removeBG:    RemoveBackgroundView()
         case .qr:          QRCodeView()
         case .ocr:         OCRView()
-        case .youtube:     YouTubeDownloadView()
+        case .videoDownload: YouTubeDownloadView()
         }
     }
 }

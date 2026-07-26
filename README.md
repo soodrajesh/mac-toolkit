@@ -1,8 +1,8 @@
 # Toolbox
 
 Native macOS PDF & image toolkit. Pure Swift + SwiftUI, no Xcode, zero third-party
-dependencies. Offline and private — nothing leaves your Mac, except the YouTube
-Downloader tool (downloads videos from YouTube as requested).
+dependencies. Offline and private — nothing leaves your Mac, except the Video
+Downloader tool (downloads videos from the web as requested).
 
 ![Toolbox screenshot](docs/screenshot.png)
 
@@ -19,14 +19,15 @@ Downloader tool (downloads videos from YouTube as requested).
   rasterization (good for scans, not for text PDFs). The app auto-detects `gs`
   at `/opt/homebrew/bin`, `/usr/local/bin`, or on `PATH`.
 
-- **yt-dlp + ffmpeg** (required for YouTube Downloader) — batch download videos
-  and extract audio:
+- **yt-dlp + ffmpeg** (required for Video Downloader) — batch download videos from
+  any site and extract audio:
 
   ```bash
   brew install yt-dlp ffmpeg
   ```
 
-  Both are required; the app auto-detects them and shows a hint if missing.
+  Both are required; the app auto-detects them and shows a hint if missing. yt-dlp
+  supports 1000+ video sites (YouTube, TikTok, Instagram, Twitter/X, Twitch, Reddit, etc.).
 - **logo.jpg** in the project root — the build turns it into the app icon
   (optional; skipped if absent).
 
@@ -83,9 +84,10 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **QR Code** — generate from text/URL (save PNG) and read/decode from images.
 - **OCR / Text** — extract text from scanned PDFs/images, or build a **searchable
   PDF** (invisible selectable text layer) — on-device (Vision).
-- **YouTube Downloader** — *batch*: paste multiple YouTube URLs and download them
-  as MP4 videos or MP3 audio files. Choose quality presets (720p, 480p, etc. for
-  video; 128/192/320 kbps for audio). Requires `yt-dlp` and `ffmpeg`.
+- **Video Downloader** — *batch*: paste multiple video URLs (YouTube, TikTok, Instagram,
+  Twitch, etc.) and download them as MP4 videos or extract audio as MP3 files.
+  Choose quality presets (720p, 480p, etc. for video; 128/192/320 kbps for audio).
+  Requires `yt-dlp` and `ffmpeg`.
 
 ## Optional: stronger PDF compression
 
