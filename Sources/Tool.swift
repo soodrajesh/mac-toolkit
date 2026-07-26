@@ -19,6 +19,7 @@ enum Tool: String, CaseIterable, Identifiable {
     case removeBG    = "Remove Background"
     case qr          = "QR Code"
     case ocr         = "OCR / Text"
+    case youtube     = "YouTube"
 
     var id: String { rawValue }
 
@@ -41,6 +42,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .removeBG:    return "wand.and.stars"
         case .qr:          return "qrcode"
         case .ocr:         return "text.viewfinder"
+        case .youtube:     return "arrow.down.to.line.circle"
         }
     }
 
@@ -50,6 +52,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .imageTools, .imageEdit, .blur, .redact, .collage, .iconGen, .removeBG: return "Images"
         case .qr:  return "Utilities"
         case .ocr: return "Recognition"
+        case .youtube: return "Media"
         }
     }
 
