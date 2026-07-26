@@ -91,7 +91,7 @@ enum YtDlp {
     static func download(url: String, to outputDir: URL, format: Format, isCancelled: @escaping () -> Bool = { false }, onProgress: @escaping (Double, String) -> Void) throws -> URL {
         if isCancelled() { throw JobError.failed("Cancelled") }
         guard let yt = ytDlpPath else { throw JobError.failed("yt-dlp not found") }
-        guard ffmpegPath != nil else { throw JobError.failed("ffmpeg not found") }
+        guard let ffmpeg = ffmpegPath else { throw JobError.failed("ffmpeg not found") }
 
         let p = Process()
         p.executableURL = URL(fileURLWithPath: yt)
@@ -106,6 +106,7 @@ enum YtDlp {
             args = [
                 "-f", quality.formatSelector,
                 "--merge-output-format", "mp4",
+                "--ffmpeg-location", ffmpeg,
                 "--no-playlist",
                 "--newline",
                 "-o", outputPattern,
@@ -119,6 +120,7 @@ enum YtDlp {
                 "-x",
                 "--audio-format", "mp3",
                 "--audio-quality", String(bitrate.rawValue),
+                "--ffmpeg-location", ffmpeg,
                 "--no-playlist",
                 "--newline",
                 "-o", outputPattern,
