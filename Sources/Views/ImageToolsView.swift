@@ -53,11 +53,12 @@ struct ImageToolsView: View {
             }
         }
         .onChange(of: model.files) { _ in updatePreview() }
+        .onChange(of: model.selected) { _ in updatePreview() }
     }
 
     private var previewPane: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ImagePreview(image: previewImage, caption: model.files.first?.lastPathComponent)
+            ImagePreview(image: previewImage, caption: model.focused?.lastPathComponent)
             if let b = beforeBytes, let a = afterBytes {
                 let pct = b > 0 ? Int((1 - Double(a) / Double(b)) * 100) : 0
                 HStack(spacing: 6) {
@@ -78,7 +79,7 @@ struct ImageToolsView: View {
 
     /// Recomputes the first-file preview (compressed pixels + size estimate).
     private func updatePreview() {
-        guard let url = model.files.first else { previewImage = nil; beforeBytes = nil; afterBytes = nil; return }
+        guard let url = model.focused else { previewImage = nil; beforeBytes = nil; afterBytes = nil; return }
         beforeBytes = url.fileSize
         let cap = resize ? Int(maxPixel) : nil
         // Display: downsample to keep it light while honouring the user's cap.

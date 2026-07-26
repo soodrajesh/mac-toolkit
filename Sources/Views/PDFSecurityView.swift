@@ -52,7 +52,8 @@ struct PDFSecurityView: View {
                 }
             }
         }
-        .onChange(of: model.files) { _ in info = model.files.first.map { FileInfoService.pdfFields($0) } ?? [] }
+        .onChange(of: model.files) { _ in info = model.focused.map { FileInfoService.pdfFields($0) } ?? [] }
+        .onChange(of: model.selected) { _ in info = model.focused.map { FileInfoService.pdfFields($0) } ?? [] }
     }
 
     private var runLabel: String {

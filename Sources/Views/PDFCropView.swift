@@ -39,10 +39,13 @@ struct PDFCropView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .onChange(of: model.files) { _ in
-            pageImage = model.files.first.flatMap { PDFService.renderPageImage($0, page: 0) }
-            info = model.files.first.map { FileInfoService.pdfFields($0) } ?? []
-        }
+        .onChange(of: model.files) { _ in reload() }
+        .onChange(of: model.selected) { _ in reload() }
+    }
+
+    private func reload() {
+        pageImage = model.focused.flatMap { PDFService.renderPageImage($0, page: 0) }
+        info = model.focused.map { FileInfoService.pdfFields($0) } ?? []
     }
 
     private var previewPane: some View {

@@ -8,6 +8,10 @@ final class JobModel: ObservableObject {
     private static let outputKey = "lastOutputDir"
 
     @Published var files: [URL] = []
+    /// The row explicitly clicked in the file list, if any and still present.
+    /// Views should read `focused`, not this, to get "the file previews and
+    /// metadata should reflect right now."
+    @Published var selected: URL?
     @Published var outputDir: URL? {        // nil = alongside source
         didSet {
             if let p = outputDir?.path { UserDefaults.standard.set(p, forKey: Self.outputKey) }
@@ -59,8 +63,16 @@ final class JobModel: ObservableObject {
         result = nil; error = nil
     }
 
-    func remove(_ url: URL) { files.removeAll { $0 == url } }
-    func clear() { files = []; result = nil; error = nil; progress = 0; status = "" }
+    func remove(_ url: URL) { files.removeAll { $0 == url }; if selected == url { selected = nil } }
+    func clear() { files = []; selected = nil; result = nil; error = nil; progress = 0; status = "" }
+
+    /// The file previews/metadata should reflect: the explicitly clicked row
+    /// if it's still in the list, otherwise the first file. Reorders and
+    /// removals resolve correctly since this tracks by URL, not index.
+    var focused: URL? {
+        if let selected, files.contains(selected) { return selected }
+        return files.first
+    }
     func move(from source: IndexSet, to dest: Int) { files.move(fromOffsets: source, toOffset: dest) }
     func moveUp(_ url: URL) { if let i = files.firstIndex(of: url), i > 0 { files.swapAt(i, i - 1) } }
     func moveDown(_ url: URL) { if let i = files.firstIndex(of: url), i < files.count - 1 { files.swapAt(i, i + 1) } }

@@ -224,7 +224,6 @@ struct DropWell: View {
 /// highlight, up/down reorder arrows (plus drag), a type icon, and remove.
 struct FileList: View {
     @ObservedObject var model: JobModel
-    @State private var selected: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -243,7 +242,7 @@ struct FileList: View {
 
     @ViewBuilder
     private func row(idx: Int, url: URL) -> some View {
-        let isSel = selected == url
+        let isSel = model.selected == url
         HStack(spacing: 8) {
             if model.allowsMultiple {
                 HStack(spacing: 2) {
@@ -263,7 +262,7 @@ struct FileList: View {
             Spacer()
             Text(url.fileSize.humanBytes).font(.caption)
                 .foregroundStyle(isSel ? Color.white.opacity(0.85) : .secondary)
-            Button { if selected == url { selected = nil }; model.remove(url) } label: {
+            Button { model.remove(url) } label: {
                 Image(systemName: "xmark.circle.fill")
             }
             .buttonStyle(.plain).foregroundStyle(isSel ? Color.white.opacity(0.9) : .secondary)
@@ -272,7 +271,7 @@ struct FileList: View {
         .background(RoundedRectangle(cornerRadius: 6)
             .fill(isSel ? Color.accentColor : Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture { selected = isSel ? nil : url }
+        .onTapGesture { model.selected = isSel ? nil : url }
         .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
     }
 

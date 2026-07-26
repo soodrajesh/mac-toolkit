@@ -155,14 +155,15 @@ Sources/
 ```
 
 Shared UX: numbered drag/arrow-reorderable file lists (drop a folder to add every
-matching file inside it, recursively), a collapsible **Details** panel showing
-per-file metadata once a file is selected (dimensions/EXIF for images, document
-properties for PDFs, codec/bitrate/tags for audio & video), right-side or in-place
-live previews, a remembered output folder (persisted across launches), a real
-progress bar (per-file, not just a spinner — every batch tool reports true
-progress as each file finishes) + **Cancel** button for batch jobs in progress,
-and collapsible sidebar sections (click a section header to expand/collapse;
-remembered across launches).
+matching file inside it, recursively) — click any row in a multi-file batch to
+switch the preview and **Details** panel to that file specifically (dimensions/EXIF
+for images, document properties for PDFs, codec/bitrate/tags for audio & video),
+falling back to the first file when nothing's explicitly clicked; a remembered
+output folder (persisted across launches); a real progress bar (per-file, not
+just a spinner — every batch tool reports true progress as each file finishes)
+alongside a **Cancel** button for batch jobs in progress; and collapsible
+sidebar sections (click a section header to expand/collapse; remembered across
+launches).
 
 Video playback (both the Convert/Extract Audio preview and any future video
 work) is built on plain `AVFoundation` + `AVPlayerLayer`, not AVKit's SwiftUI

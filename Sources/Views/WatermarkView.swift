@@ -72,11 +72,12 @@ struct WatermarkView: View {
             }
         }
         .onChange(of: model.files) { _ in updatePreview() }
+        .onChange(of: model.selected) { _ in updatePreview() }
     }
 
     private var previewPane: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ImagePreview(image: previewImage, caption: model.files.first?.lastPathComponent)
+            ImagePreview(image: previewImage, caption: model.focused?.lastPathComponent)
             if model.files.isEmpty { Text("Drop an image to preview.").font(.caption).foregroundStyle(.secondary) }
         }
     }
@@ -103,7 +104,7 @@ struct WatermarkView: View {
     }
 
     private func updatePreview() {
-        guard let url = model.files.first, let src = try? ImageService.loadDownsampled(url, maxPixel: 1200),
+        guard let url = model.focused, let src = try? ImageService.loadDownsampled(url, maxPixel: 1200),
               let out = watermark(src) else { previewImage = nil; return }
         previewImage = NSImage(cgImage: out, size: NSSize(width: out.width, height: out.height))
     }

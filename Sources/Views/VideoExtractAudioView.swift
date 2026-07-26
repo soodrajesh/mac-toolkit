@@ -29,11 +29,12 @@ struct VideoExtractAudioView: View {
             }
         }
         .onChange(of: model.files) { _ in loadPreview() }
+        .onChange(of: model.selected) { _ in loadPreview() }
     }
 
     private var previewPane: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let url = model.files.first {
+            if let url = model.focused {
                 VideoPreviewPlayer(url: url, fallbackThumbnail: thumbnail)
                 Text("Audio will be extracted from this video.").font(.caption).foregroundStyle(.secondary)
             } else {
@@ -44,12 +45,12 @@ struct VideoExtractAudioView: View {
 
     private func loadPreview() {
         thumbnail = nil; info = []
-        guard let url = model.files.first else { return }
+        guard let url = model.focused else { return }
         info = FileInfoService.videoFields(url)
         Task.detached(priority: .userInitiated) {
             let img = FileInfoService.videoThumbnail(url)
             await MainActor.run {
-                guard model.files.first == url else { return }
+                guard model.focused == url else { return }
                 thumbnail = img
             }
         }

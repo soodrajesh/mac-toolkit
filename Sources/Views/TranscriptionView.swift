@@ -38,10 +38,8 @@ struct TranscriptionView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .onChange(of: model.files) { _ in
-            guard let url = model.files.first else { info = []; return }
-            info = url.conformsTo(.movie) ? FileInfoService.videoFields(url) : FileInfoService.audioFields(url)
-        }
+        .onChange(of: model.files) { _ in reload() }
+        .onChange(of: model.selected) { _ in reload() }
         .task {
             let found = await Task.detached(priority: .userInitiated) { TranscriptionService.onDeviceLocales() }.value
             // This app only needs English (US/UK/India) — narrow the picker to those
@@ -54,6 +52,11 @@ struct TranscriptionView: View {
                 locale = first
             }
         }
+    }
+
+    private func reload() {
+        guard let url = model.focused else { info = []; return }
+        info = url.conformsTo(.movie) ? FileInfoService.videoFields(url) : FileInfoService.audioFields(url)
     }
 
     @ViewBuilder

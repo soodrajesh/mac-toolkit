@@ -61,17 +61,20 @@ struct RemoveBackgroundView: View {
                 }
             }
         }
-        .onChange(of: model.files) { _ in
-            cutout = nil; cutoutURL = nil; previewImage = nil
-            inputImage = model.files.first.flatMap { NSImage(contentsOf: $0) }
-            info = model.files.first.map { FileInfoService.imageFields($0) } ?? []
-        }
+        .onChange(of: model.files) { _ in reload() }
+        .onChange(of: model.selected) { _ in reload() }
+    }
+
+    private func reload() {
+        cutout = nil; cutoutURL = nil; previewImage = nil
+        inputImage = model.focused.flatMap { NSImage(contentsOf: $0) }
+        info = model.focused.map { FileInfoService.imageFields($0) } ?? []
     }
 
     private var previewPane: some View {
         VStack {
             ImagePreview(image: previewImage ?? inputImage,
-                         caption: previewImage != nil ? "Result" : (model.files.first?.lastPathComponent ?? "Drop an image"))
+                         caption: previewImage != nil ? "Result" : (model.focused?.lastPathComponent ?? "Drop an image"))
             Spacer()
         }
     }
@@ -102,7 +105,7 @@ struct RemoveBackgroundView: View {
     }
 
     private func run() {
-        guard let url = model.files.first else { model.error = "No image"; return }
+        guard let url = model.focused else { model.error = "No image"; return }
         let bg = background()
         let ext = { if case .transparent = bg { return "png" } else { return "png" } }()
         let dir = model.outputDir

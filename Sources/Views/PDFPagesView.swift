@@ -61,10 +61,13 @@ struct PDFPagesView: View {
                 }
             }
         }
-        .onChange(of: model.files) { _ in
-            guard let first = model.files.first else { info = []; return }
-            info = first.conformsTo(.pdf) ? FileInfoService.pdfFields(first) : FileInfoService.imageFields(first)
-        }
+        .onChange(of: model.files) { _ in reload() }
+        .onChange(of: model.selected) { _ in reload() }
+    }
+
+    private func reload() {
+        guard let url = model.focused else { info = []; return }
+        info = url.conformsTo(.pdf) ? FileInfoService.pdfFields(url) : FileInfoService.imageFields(url)
     }
 
     private var runLabel: String {
