@@ -53,10 +53,11 @@ fonts and vectors, not downsamplable images. Use **Screen** for the deepest cuts
 - **Split PDF** — one file per page, or by page ranges (`1-3, 5, 8-10`).
 - **PDF Pages** — rotate, delete, extract pages; PDF → images; images → PDF.
 - **PDF Security** — add/remove password, diagonal watermark.
-- **Image Tools** — compress/convert PNG/JPEG/HEIC/TIFF (incl. HEIC → JPEG),
-  resize, EXIF/GPS always stripped.
-- **Image Editor** — crop (draw on the image), rotate, flip, and resize presets
-  (avatar, Instagram, LinkedIn banner, HD/4K).
+- **Convert & Compress** — *batch*: many images at once → change format (incl.
+  HEIC → JPEG), compress by quality, cap max size, EXIF/GPS always stripped.
+- **Image Editor** — *single image*: crop with draggable handles, rotate, flip,
+  Paint-style Resize & Skew (percentage or pixels, keep aspect), live selection +
+  output-size readout.
 - **Blur / Pixelate** — drag over regions to hide faces/addresses/numbers.
 - **Redact** — permanently black out regions in a PDF or image (content underneath
   is destroyed, not just covered). Multi-page PDF support.

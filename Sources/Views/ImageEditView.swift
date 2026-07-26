@@ -5,17 +5,24 @@ struct ImageEditView: View {
     @StateObject private var model = JobModel(types: [.image], multiple: false)
     @State private var working: CGImage?
     @State private var cropRects: [CGRect] = []
-    @State private var preset: ResizePreset = .none
     @State private var format: ImageService.Format = .png
     @State private var quality = 0.85
     @State private var saved: URL?
     @State private var selectionPx: CGSize?
     @State private var estimatedBytes: Int?
 
+    // Resize & Skew (Paint-style)
+    @State private var byPixels = false
+    @State private var keepAspect = true
+    @State private var hVal = 100.0
+    @State private var vVal = 100.0
+    @State private var skewH = 0.0
+    @State private var skewV = 0.0
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                header("Image Editor", "Crop, rotate, flip, and resize. Drag on the image to set a crop.")
+                header("Image Editor", "Edit ONE image: crop (drag on it), rotate, flip, resize & skew, then save.")
 
                 DropWell(model: model)
                 if !model.files.isEmpty { FileList(model: model) }
@@ -35,28 +42,23 @@ struct ImageEditView: View {
 
                     RegionSelector(image: ns, rects: $cropRects, singleSelection: true,
                                    onSelection: { updateSelection($0) })
-                        .frame(height: 340)
+                        .frame(height: 320)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
 
-                    // Paint-style status bar: dimensions, selection, file sizes.
+                    // Status bar: dimensions, selection, file sizes.
                     HStack(spacing: 14) {
                         label("rectangle", "\(working.width) × \(working.height) px")
                         if let sel = selectionPx {
-                            label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px")
-                                .foregroundStyle(.primary)
+                            label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px").foregroundStyle(.primary)
                         }
                         Spacer()
                         if let src = model.files.first { label("doc", "Source \(src.fileSize.humanBytes)") }
                         if let est = estimatedBytes { label("arrow.down.doc", "Output ~\(Int64(est).humanBytes)") }
                     }
-                    .font(.caption).foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
+                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
 
-                    Picker("Resize", selection: $preset) {
-                        ForEach(ResizePreset.allCases) { Text($0.rawValue).tag($0) }
-                    }.frame(maxWidth: 320)
-                    .onChange(of: preset) { _ in updateEstimate() }
+                    resizeSkewPanel
 
                     HStack {
                         Picker("Format", selection: $format) {
@@ -65,9 +67,7 @@ struct ImageEditView: View {
                         .onChange(of: format) { _ in updateEstimate() }
                         if format.lossy {
                             Text("Quality \(Int(quality * 100))%")
-                            Slider(value: $quality, in: 0.1...1) { editing in
-                                if !editing { updateEstimate() }
-                            }.frame(width: 140)
+                            Slider(value: $quality, in: 0.1...1) { editing in if !editing { updateEstimate() } }.frame(width: 140)
                         }
                     }
 
@@ -85,20 +85,97 @@ struct ImageEditView: View {
         .onChange(of: model.files) { _ in reload() }
     }
 
+    // MARK: Resize & Skew panel
+
+    private var resizeSkewPanel: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Resize by:").frame(width: 90, alignment: .leading)
+                    Picker("", selection: $byPixels) {
+                        Text("Percentage").tag(false); Text("Pixels").tag(true)
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                    .onChange(of: byPixels) { _ in resetResizeFields() }
+                }
+                field("Horizontal:", value: $hVal, unit: byPixels ? "px" : "%", disabled: false) {
+                    if keepAspect { syncVertical() }
+                }
+                field("Vertical:", value: $vVal, unit: byPixels ? "px" : "%", disabled: keepAspect) { }
+                Toggle("Maintain aspect ratio", isOn: $keepAspect)
+                    .onChange(of: keepAspect) { _ in if keepAspect { syncVertical() } }
+                Button("Apply Resize") { applyResize() }
+
+                Divider()
+
+                HStack(spacing: 8) {
+                    Text("Skew:").frame(width: 90, alignment: .leading)
+                    Text("H").foregroundStyle(.secondary)
+                    TextField("0", value: $skewH, format: .number).frame(width: 56).textFieldStyle(.roundedBorder)
+                    Text("°  V").foregroundStyle(.secondary)
+                    TextField("0", value: $skewV, format: .number).frame(width: 56).textFieldStyle(.roundedBorder)
+                    Text("°").foregroundStyle(.secondary)
+                    Button("Apply Skew") { applySkew() }
+                }
+            }
+            .padding(6)
+        } label: { Text("Resize & Skew").font(.callout).bold() }
+        .frame(maxWidth: 420, alignment: .leading)
+    }
+
+    private func field(_ title: String, value: Binding<Double>, unit: String,
+                       disabled: Bool, onCommit: @escaping () -> Void) -> some View {
+        HStack {
+            Text(title).frame(width: 90, alignment: .leading)
+            TextField("", value: value, format: .number)
+                .frame(width: 80).textFieldStyle(.roundedBorder).disabled(disabled)
+                .onChange(of: value.wrappedValue) { _ in onCommit() }
+            Text(unit).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: Actions
+
     private func reload() {
-        cropRects = []; saved = nil; selectionPx = nil
+        cropRects = []; saved = nil; selectionPx = nil; skewH = 0; skewV = 0
         working = model.files.first.flatMap { try? ImageService.loadCGImage($0) }
-        updateEstimate()
+        resetResizeFields(); updateEstimate()
     }
     private func rotate(_ q: Int) {
-        if let w = working { working = ImageEditService.rotate(w, quarters: q); cropRects = []; selectionPx = nil; updateEstimate() }
+        if let w = working { working = ImageEditService.rotate(w, quarters: q); cropRects = []; selectionPx = nil; resetResizeFields(); updateEstimate() }
     }
     private func flip(h: Bool = false, v: Bool = false) {
         if let w = working { working = ImageEditService.flip(w, horizontal: h, vertical: v); updateEstimate() }
     }
     private func applyCrop() {
         guard let w = working, let r = cropRects.first else { return }
-        working = ImageEditService.crop(w, normRect: r); cropRects = []; selectionPx = nil; updateEstimate()
+        working = ImageEditService.crop(w, normRect: r); cropRects = []; selectionPx = nil; resetResizeFields(); updateEstimate()
+    }
+
+    private func resetResizeFields() {
+        guard let w = working else { return }
+        if byPixels { hVal = Double(w.width); vVal = Double(w.height) } else { hVal = 100; vVal = 100 }
+    }
+    private func syncVertical() {
+        guard let w = working else { return }
+        vVal = byPixels ? (hVal * Double(w.height) / Double(max(1, w.width))).rounded() : hVal
+    }
+    private func applyResize() {
+        guard let w = working else { return }
+        let tw: Int, th: Int
+        if byPixels {
+            tw = Int(hVal)
+            th = keepAspect ? Int((hVal * Double(w.height) / Double(max(1, w.width))).rounded()) : Int(vVal)
+        } else {
+            tw = Int((Double(w.width) * hVal / 100).rounded())
+            th = Int((Double(w.height) * (keepAspect ? hVal : vVal) / 100).rounded())
+        }
+        working = ImageEditService.resizeExact(w, width: max(1, tw), height: max(1, th))
+        resetResizeFields(); updateEstimate()
+    }
+    private func applySkew() {
+        guard let w = working else { return }
+        working = ImageEditService.skew(w, hDegrees: skewH, vDegrees: skewV)
+        skewH = 0; skewV = 0; resetResizeFields(); updateEstimate()
     }
 
     private func updateSelection(_ norm: CGRect?) {
@@ -106,30 +183,21 @@ struct ImageEditView: View {
         selectionPx = CGSize(width: (norm.width * CGFloat(w.width)).rounded(),
                              height: (norm.height * CGFloat(w.height)).rounded())
     }
-
-    /// Encodes the current image (with resize preset applied) in memory to estimate output size.
     private func updateEstimate() {
-        guard var out = working else { estimatedBytes = nil; return }
-        if let box = preset.box, let resized = ImageEditService.resizeFit(out, maxW: box.0, maxH: box.1) {
-            out = resized
-        }
+        guard let out = working else { estimatedBytes = nil; return }
         estimatedBytes = ImageService.encodeData(out, format: format, quality: quality)?.count
     }
 
-    private func label(_ symbol: String, _ text: String) -> some View {
-        Label(text, systemImage: symbol).labelStyle(.titleAndIcon)
-    }
-
     private func save() {
-        guard var out = working, let src = model.files.first else { return }
-        if let box = preset.box, let resized = ImageEditService.resizeFit(out, maxW: box.0, maxH: box.1) {
-            out = resized
-        }
+        guard let out = working, let src = model.files.first else { return }
         let url = OutputPath.make(for: src, dir: model.outputDir, suffix: "-edited", ext: format.ext)
         do { try ImageService.write(out, to: url, format: format, quality: quality); saved = url }
         catch { model.error = error.localizedDescription }
     }
 
+    private func label(_ symbol: String, _ text: String) -> some View {
+        Label(text, systemImage: symbol).labelStyle(.titleAndIcon)
+    }
     private func header(_ t: String, _ s: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(t).font(.title2).bold()

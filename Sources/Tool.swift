@@ -7,7 +7,7 @@ enum Tool: String, CaseIterable, Identifiable {
     case pdfSplit    = "Split PDF"
     case pdfPages    = "PDF Pages"
     case pdfSecurity = "PDF Security"
-    case imageTools  = "Image Tools"
+    case imageTools  = "Convert & Compress"
     case imageEdit   = "Image Editor"
     case blur        = "Blur / Pixelate"
     case redact      = "Redact"

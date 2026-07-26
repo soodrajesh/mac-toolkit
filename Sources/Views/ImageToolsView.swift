@@ -10,8 +10,8 @@ struct ImageToolsView: View {
 
     var body: some View {
         ToolScaffold(
-            title: "Image Tools",
-            subtitle: "Compress, convert (incl. HEIC → JPEG), resize, and strip EXIF.",
+            title: "Convert & Compress",
+            subtitle: "Batch: drop many images to change format (HEIC → JPEG…), compress, cap size, and strip EXIF — all at once. For visual crop/rotate, use Image Editor.",
             model: model,
             runLabel: "Process",
             onRun: run

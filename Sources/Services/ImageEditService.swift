@@ -56,6 +56,34 @@ enum ImageEditService {
         return ctx.makeImage()
     }
 
+    /// Resizes to exact dimensions (aspect ratio not preserved).
+    static func resizeExact(_ cg: CGImage, width: Int, height: Int) -> CGImage? {
+        let w = max(1, width), h = max(1, height)
+        guard let ctx = context(w, h) else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage()
+    }
+
+    /// Skews (shears) the image by the given degrees; canvas grows to fit, new area is transparent.
+    static func skew(_ cg: CGImage, hDegrees: Double, vDegrees: Double) -> CGImage? {
+        if hDegrees == 0, vDegrees == 0 { return cg }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        let sx = CGFloat(tan(hDegrees * .pi / 180))
+        let sy = CGFloat(tan(vDegrees * .pi / 180))
+        let t = CGAffineTransform(a: 1, b: sy, c: sx, d: 1, tx: 0, ty: 0)
+        let corners = [CGPoint(x: 0, y: 0), CGPoint(x: w, y: 0),
+                       CGPoint(x: 0, y: h), CGPoint(x: w, y: h)].map { $0.applying(t) }
+        let minX = corners.map(\.x).min()!, maxX = corners.map(\.x).max()!
+        let minY = corners.map(\.y).min()!, maxY = corners.map(\.y).max()!
+        let nw = Int(ceil(maxX - minX)), nh = Int(ceil(maxY - minY))
+        guard nw > 0, nh > 0, let ctx = context(nw, nh) else { return nil }
+        ctx.translateBy(x: -minX, y: -minY)
+        ctx.concatenate(t)
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage()
+    }
+
     /// Paints solid black over normalized rects — pixels are destroyed (true redaction).
     static func redact(_ cg: CGImage, rects: [CGRect]) -> CGImage? {
         let w = cg.width, h = cg.height
