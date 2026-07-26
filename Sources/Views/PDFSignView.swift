@@ -16,13 +16,17 @@ struct PDFSignView: View {
     @State private var scriptFont = "Snell Roundhand"
     @State private var inkColor: Color = .black
 
+    // Uploaded signature image (remembered across sessions)
+    @AppStorage("signatureImagePath") private var savedSigPath = ""
+    @State private var sigImageCG: CGImage?
+
     static let signatureFonts = [
         "Snell Roundhand", "Savoye LET", "Zapfino", "Apple Chancery", "Brush Script MT",
         "SignPainter", "Noteworthy", "Bradley Hand", "Marker Felt", "Chalkboard SE",
         "Herculanum", "Trattatello", "Papyrus",
     ]
 
-    enum Mode: String, CaseIterable, Identifiable { case draw = "Draw", type = "Type"; var id: String { rawValue } }
+    enum Mode: String, CaseIterable, Identifiable { case draw = "Draw", type = "Type", image = "Image"; var id: String { rawValue } }
     private let padSize = CGSize(width: 400, height: 150)
     @State private var zoom: CGFloat = 1
     @State private var lastZoom: CGFloat = 1
@@ -97,6 +101,7 @@ struct PDFSignView: View {
             }
         }
         .onChange(of: model.files) { _ in zoom = 1; lastZoom = 1; load() }
+        .onAppear { loadStoredSignature() }
     }
 
     private func zoomablePage(_ image: NSImage) -> some View {
@@ -141,25 +146,67 @@ struct PDFSignView: View {
                         Button { strokes = [] } label: { Label("Clear", systemImage: "xmark") }
                             .disabled(strokes.isEmpty)
                     }
-                } else {
+                } else if mode == .type {
                     TextField("Signature text", text: $typed).textFieldStyle(.roundedBorder).frame(width: 300)
                     Picker("Font", selection: $scriptFont) {
                         ForEach(Self.signatureFonts, id: \.self) {
                             Text($0).font(.custom($0, size: 16)).tag($0)
                         }
                     }.frame(width: 240)
+                } else {
+                    HStack(spacing: 10) {
+                        Button("Choose image…") { chooseSigImage() }
+                        if !savedSigPath.isEmpty {
+                            Button { savedSigPath = ""; sigImageCG = nil; updatePreview() } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
+                    }
+                    if let cg = sigImageCG {
+                        Image(nsImage: NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)))
+                            .resizable().scaledToFit().frame(maxWidth: 260, maxHeight: 90)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(.gray.opacity(0.12)))
+                        Text("Saved and reused next time. A transparent PNG works best.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    } else {
+                        Text("Upload a signature image (PNG/JPEG).").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }.padding(6)
         } label: { Label("Signature", systemImage: "signature").font(.callout).bold() }
         .frame(maxWidth: 500, alignment: .leading)
     }
 
-    private var hasSignature: Bool { mode == .draw ? !strokes.isEmpty : !typed.isEmpty }
+    private func chooseSigImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]; panel.canChooseFiles = true; panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            savedSigPath = url.path
+            sigImageCG = try? ImageService.loadCGImage(url)
+            updatePreview()
+        }
+    }
+
+    private func loadStoredSignature() {
+        guard sigImageCG == nil, !savedSigPath.isEmpty,
+              FileManager.default.fileExists(atPath: savedSigPath) else { return }
+        sigImageCG = try? ImageService.loadCGImage(URL(fileURLWithPath: savedSigPath))
+    }
+
+    private var hasSignature: Bool {
+        switch mode {
+        case .draw: return !strokes.isEmpty
+        case .type: return !typed.isEmpty
+        case .image: return sigImageCG != nil
+        }
+    }
 
     private func signatureImage() -> CGImage? {
-        mode == .draw
-            ? SignatureService.fromStrokes(strokes, size: padSize, color: NSColor(inkColor))
-            : SignatureService.fromText(typed, fontName: scriptFont, color: NSColor(inkColor))
+        switch mode {
+        case .draw: return SignatureService.fromStrokes(strokes, size: padSize, color: NSColor(inkColor))
+        case .type: return SignatureService.fromText(typed, fontName: scriptFont, color: NSColor(inkColor))
+        case .image: return sigImageCG
+        }
     }
 
     private func load() {
