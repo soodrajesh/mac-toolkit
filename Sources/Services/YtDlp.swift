@@ -132,7 +132,6 @@ enum YtDlp {
 
         try p.run()
 
-        var lastOutputFile: String?
         let outputQueue = DispatchQueue(label: "yt-dlp.output", qos: .userInitiated)
         let outputGroup = DispatchGroup()
         outputGroup.enter()
@@ -160,17 +159,6 @@ enum YtDlp {
                 }
                 Thread.sleep(forTimeInterval: 0.01)
             }
-
-            // Read any remaining output after process exits
-            if let data = try? handle.availableData, !data.isEmpty {
-                let line = String(decoding: data, as: UTF8.self)
-                for outputLine in line.split(separator: "\n", omittingEmptySubsequences: true) {
-                    let lineStr = String(outputLine).trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !lineStr.isEmpty && lineStr.starts(with: "/") {
-                        lastOutputFile = lineStr
-                    }
-                }
-            }
             outputGroup.leave()
         }
 
@@ -183,10 +171,36 @@ enum YtDlp {
             throw JobError.failed("Download failed: \(errMsg)")
         }
 
-        guard let filePath = lastOutputFile, FileManager.default.fileExists(atPath: filePath) else {
-            throw JobError.failed("Output file not found after download")
+        // Find the downloaded file by searching for recently modified files in outputDir
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: outputDir, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) else {
+            throw JobError.failed("Cannot read output directory")
         }
 
-        return URL(fileURLWithPath: filePath)
+        let now = Date()
+        let recentFiles = files.filter { url in
+            do {
+                let attrs = try url.resourceValues(forKeys: [.contentModificationDateKey])
+                if let modDate = attrs.contentModificationDate {
+                    return now.timeIntervalSince(modDate) < 10 && url.hasDirectoryPath == false
+                }
+            } catch { }
+            return false
+        }.sorted { a, b in
+            do {
+                let aAttrs = try a.resourceValues(forKeys: [.contentModificationDateKey])
+                let bAttrs = try b.resourceValues(forKeys: [.contentModificationDateKey])
+                if let aDate = aAttrs.contentModificationDate, let bDate = bAttrs.contentModificationDate {
+                    return aDate > bDate
+                }
+            } catch { }
+            return false
+        }
+
+        guard let outputFile = recentFiles.first else {
+            throw JobError.failed("No downloaded file found in output directory")
+        }
+
+        return outputFile
     }
 }
