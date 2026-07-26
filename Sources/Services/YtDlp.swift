@@ -104,6 +104,7 @@ enum YtDlp {
             args = [
                 "-f", quality.formatSelector,
                 "--merge-output-format", "mp4",
+                "--no-playlist",
                 "--newline",
                 "-o", outputPattern,
                 "--print", "after_move:filepath",
@@ -114,6 +115,7 @@ enum YtDlp {
                 "-x",
                 "--audio-format", "mp3",
                 "--audio-quality", String(bitrate.rawValue),
+                "--no-playlist",
                 "--newline",
                 "-o", outputPattern,
                 "--print", "after_move:filepath",
@@ -131,30 +133,40 @@ enum YtDlp {
         try p.run()
 
         var lastOutputFile: String?
-        let handle = outPipe.fileHandleForReading
-        handle.readabilityHandler = { pipe in
-            let data = pipe.availableData
-            guard !data.isEmpty else { return }
-            let line = String(decoding: data, as: UTF8.self)
+        let outputQueue = DispatchQueue(label: "yt-dlp.output", qos: .userInitiated)
+        let outputGroup = DispatchGroup()
+        outputGroup.enter()
 
-            if line.contains("[download]") && line.contains("%") {
-                if let pctMatch = line.range(of: #"([\d.]+)%"#, options: .regularExpression) {
-                    let pctStr = String(line[pctMatch]).replacingOccurrences(of: "%", with: "")
-                    if let pct = Double(pctStr) {
-                        var sizeStr = ""
-                        if let sizeMatch = line.range(of: #"of\s+~?([\d.]+[KMG]iB)"#, options: .regularExpression) {
-                            sizeStr = String(line[sizeMatch]).replacingOccurrences(of: "of ", with: "")
+        outputQueue.async {
+            let handle = outPipe.fileHandleForReading
+            while p.isRunning {
+                if let data = try? handle.availableData, !data.isEmpty {
+                    let line = String(decoding: data, as: UTF8.self)
+                    for outputLine in line.split(separator: "\n", omittingEmptySubsequences: true) {
+                        let lineStr = String(outputLine)
+                        if lineStr.contains("[download]") && lineStr.contains("%") {
+                            if let pctMatch = lineStr.range(of: #"([\d.]+)%"#, options: .regularExpression) {
+                                let pctStr = String(lineStr[pctMatch]).replacingOccurrences(of: "%", with: "")
+                                if let pct = Double(pctStr) {
+                                    var sizeStr = ""
+                                    if let sizeMatch = lineStr.range(of: #"of\s+~?([\d.]+[KMG]iB)"#, options: .regularExpression) {
+                                        sizeStr = String(lineStr[sizeMatch]).replacingOccurrences(of: "of ", with: "")
+                                    }
+                                    DispatchQueue.main.async { onProgress(pct / 100, sizeStr) }
+                                }
+                            }
+                        } else if !lineStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, lineStr.contains("/") {
+                            lastOutputFile = lineStr.trimmingCharacters(in: .whitespacesAndNewlines)
                         }
-                        DispatchQueue.main.async { onProgress(pct / 100, sizeStr) }
                     }
                 }
-            } else if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, line.contains("/") {
-                lastOutputFile = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                Thread.sleep(forTimeInterval: 0.01)
             }
+            outputGroup.leave()
         }
 
         p.waitUntilExit()
-        handle.readabilityHandler = nil
+        outputGroup.wait()
 
         guard p.terminationStatus == 0 else {
             let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
