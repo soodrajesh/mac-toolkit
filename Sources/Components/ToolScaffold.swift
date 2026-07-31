@@ -12,15 +12,24 @@ struct ToolScaffold<Options: View, Preview: View>: View {
     let runLabel: String
     let onRun: () -> Void
     let previewVisible: Bool
+    let secondaryLabel: String?
+    let onSecondary: (() -> Void)?
+    let clearLabel: String
+    let onClear: (() -> Void)?
+    @State private var dividerPos: CGFloat = 400
     @ViewBuilder var preview: () -> Preview
     @ViewBuilder var options: () -> Options
 
     init(title: String, subtitle: String, model: JobModel, runLabel: String,
          onRun: @escaping () -> Void, previewVisible: Bool = true,
+         secondaryLabel: String? = nil, onSecondary: (() -> Void)? = nil,
+         clearLabel: String = "Clear", onClear: (() -> Void)? = nil,
          @ViewBuilder preview: @escaping () -> Preview = { EmptyView() },
          @ViewBuilder options: @escaping () -> Options) {
         self.title = title; self.subtitle = subtitle; self.model = model
         self.runLabel = runLabel; self.onRun = onRun; self.previewVisible = previewVisible
+        self.secondaryLabel = secondaryLabel; self.onSecondary = onSecondary
+        self.clearLabel = clearLabel; self.onClear = onClear
         self.preview = preview; self.options = options
     }
 
@@ -29,7 +38,7 @@ struct ToolScaffold<Options: View, Preview: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title).font(.title2).bold()
                         Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
@@ -49,10 +58,16 @@ struct ToolScaffold<Options: View, Preview: View>: View {
                         .disabled(model.files.isEmpty || model.isRunning)
                         .buttonStyle(.borderedProminent)
 
+                        if let label = secondaryLabel, let action = onSecondary {
+                            Button(action: action) { Text(label) }
+                                .keyboardShortcut(.return, modifiers: [.command, .shift])
+                                .disabled(model.isRunning)
+                        }
+
                         if model.isRunning {
                             Button("Cancel") { model.cancel() }
                         } else if !model.files.isEmpty {
-                            Button("Clear") { model.clear() }
+                            Button(clearLabel) { onClear?() ?? model.clear() }
                         }
                         Spacer()
                     }
@@ -69,31 +84,75 @@ struct ToolScaffold<Options: View, Preview: View>: View {
                 }
                 .padding(20)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 340, maxWidth: .infinity, alignment: .leading)
             .onReceive(NotificationCenter.default.publisher(for: .runTool)) { _ in
                 if !model.isRunning, !model.files.isEmpty { onRun() }
             }
 
             if hasPreview {
-                Divider()
+                ResizableDivider(position: $dividerPos)
+                    .frame(width: 1)
                 PreviewPane { preview() }
-                    .frame(width: 380)
+                    .frame(minWidth: 280, idealWidth: dividerPos, maxWidth: .infinity)
             }
         }
     }
 }
 
-/// Right-side preview container with a consistent header.
+/// Right-side preview container with consistent header and metadata below.
 struct PreviewPane<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Label("Preview", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
-            content()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(20)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+/// Resizable divider with drag gesture.
+struct ResizableDivider: View {
+    @Binding var position: CGFloat
+    @State private var isDragging = false
+    @State private var startX: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .opacity(isDragging ? 1 : 0.3)
+        }
+        .frame(width: 8)
+        .contentShape(Rectangle())
+        .background(Color.gray.opacity(isDragging ? 0.4 : 0.1))
+        .onHover { hovering in
+            if hovering {
+                NSCursor.resizeLeftRight.push()
+            } else {
+                NSCursor.arrow.pop()
+            }
+        }
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    if !isDragging {
+                        startX = value.startLocation.x
+                        isDragging = true
+                    }
+                    let delta = value.location.x - value.startLocation.x
+                    let newPos = position + delta
+                    position = max(280, min(900, newPos))
+                }
+                .onEnded { _ in
+                    isDragging = false
+                }
+        )
     }
 }
 
@@ -152,12 +211,15 @@ struct ImagePreview: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.12))
                 if let image {
-                    Image(nsImage: image).resizable().scaledToFit().padding(6)
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding(8)
                 } else {
                     Text("No image").foregroundStyle(.secondary)
                 }
             }
-            .frame(minHeight: 240)
+            .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
             if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
         }
@@ -170,23 +232,25 @@ struct DropWell: View {
     @State private var targeted = false
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(systemName: "arrow.down.doc")
-                .font(.system(size: 30))
+                .font(.system(size: 24))
                 .foregroundStyle(.secondary)
             Text(model.allowsMultiple ? "Drop files here" : "Drop a file here")
+                .font(.caption)
                 .foregroundStyle(.secondary)
             Button("Choose…") { choose() }
                 .controlSize(.small)
+                .font(.caption)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(targeted ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.06))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6]))
                 .foregroundStyle(targeted ? Color.accentColor : Color.gray.opacity(0.4))
         )

@@ -17,7 +17,6 @@ struct VideoConvertView: View {
             preview: { previewPane }
         ) {
             VStack(alignment: .leading, spacing: 12) {
-                MetadataPanel(fields: info)
                 Picker("Quality", selection: $preset) {
                     ForEach(VideoService.Preset.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented)
@@ -30,14 +29,19 @@ struct VideoConvertView: View {
     }
 
     private var previewPane: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             if let url = model.focused {
                 VideoPreviewPlayer(url: url, fallbackThumbnail: thumbnail)
                 Text(url.lastPathComponent).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle)
+
+                if !info.isEmpty {
+                    MetadataPanel(fields: info)
+                }
             } else {
                 Text("Drop a video to preview.").font(.caption).foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
         }
     }
 

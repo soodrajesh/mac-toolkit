@@ -17,14 +17,17 @@ struct IconGeneratorView: View {
             runLabel: "Generate",
             onRun: run,
             preview: {
-                VStack {
+                VStack(spacing: 12) {
                     ImagePreview(image: square, caption: "Square crop used for icons")
-                    Spacer()
+
+                    if !info.isEmpty {
+                        MetadataPanel(fields: info)
+                    }
+                    Spacer(minLength: 0)
                 }
             }
         ) {
             VStack(alignment: .leading, spacing: 8) {
-                MetadataPanel(fields: info)
                 Toggle("PNG set (16–1024 px)", isOn: $pngs)
                 Toggle("favicon.ico (multi-resolution)", isOn: $ico)
                 Toggle("AppIcon.icns (macOS)", isOn: $icns)

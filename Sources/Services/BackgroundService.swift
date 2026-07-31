@@ -19,10 +19,16 @@ enum BackgroundService {
 
     /// Returns the foreground subject as a transparent-background CGImage.
     static func cutout(_ url: URL) throws -> CGImage {
+        try cutout(try ImageService.loadCGImage(url))
+    }
+
+    /// Same as `cutout(_ url:)`, but runs directly on an in-memory image —
+    /// e.g. a user-cropped region, which gives Vision a tighter, less
+    /// ambiguous frame and often yields a cleaner mask.
+    static func cutout(_ img: CGImage) throws -> CGImage {
         guard #available(macOS 14.0, *) else {
             throw JobError.failed("Background removal needs macOS 14 or later")
         }
-        let img = try ImageService.loadCGImage(url)
         let request = VNGenerateForegroundInstanceMaskRequest()
         let handler = VNImageRequestHandler(cgImage: img, options: [:])
         try handler.perform([request])

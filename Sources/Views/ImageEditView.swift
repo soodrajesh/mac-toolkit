@@ -31,17 +31,18 @@ struct ImageEditView: View {
     @State private var textAnchor: ImageEditService.StampAnchor = .bottomRight
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header("Image Editor", "Edit ONE image: crop (drag on it), rotate, flip, resize & skew, then save.")
-
-                DropWell(model: model)
-                if !model.files.isEmpty { FileList(model: model) }
-                MetadataPanel(fields: info)
-
-                if let working {
-                    let shown = finalCG(working)
-                    let ns = NSImage(cgImage: shown, size: NSSize(width: shown.width, height: shown.height))
+        ToolScaffold(
+            title: "Image Editor",
+            subtitle: "Edit ONE image: crop (drag on it), rotate, flip, resize & skew, then save.",
+            model: model,
+            runLabel: "Save",
+            onRun: save,
+            clearLabel: "Reset",
+            onClear: reload,
+            preview: { previewPane }
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                if working != nil {
                     HStack(spacing: 8) {
                         Button { rotate(-1) } label: { Image(systemName: "rotate.left") }
                         Button { rotate(1) } label: { Image(systemName: "rotate.right") }
@@ -49,30 +50,8 @@ struct ImageEditView: View {
                         Button { flip(v: true) } label: { Image(systemName: "arrow.up.and.down.righttriangle.up.righttriangle.down") }
                         Divider().frame(height: 18)
                         Button("Apply Crop") { applyCrop() }.disabled(cropRects.isEmpty)
-                        Button("Reset") { reload() }
                         Spacer()
                     }
-
-                    RegionSelector(image: ns, rects: $cropRects, singleSelection: true,
-                                   onSelection: { updateSelection($0) })
-                        .frame(height: 320)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
-
-                    // Status bar: dimensions, selection, file sizes.
-                    HStack(spacing: 14) {
-                        label("rectangle", "\(working.width) × \(working.height) px")
-                        if let sel = selectionPx {
-                            let wp = Int((sel.width / CGFloat(working.width) * 100).rounded())
-                            let hp = Int((sel.height / CGFloat(working.height) * 100).rounded())
-                            label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px  (\(wp)% × \(hp)%)")
-                                .foregroundStyle(.primary)
-                        }
-                        Spacer()
-                        if let src = model.files.first { label("doc", "Source \(src.fileSize.humanBytes)") }
-                        if let est = estimatedBytes { label("arrow.down.doc", "Output ~\(Int64(est).humanBytes)") }
-                    }
-                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
 
                     resizeSkewPanel
                     textPanel
@@ -88,8 +67,6 @@ struct ImageEditView: View {
                         }
                     }
 
-                    Button("Save") { save() }.buttonStyle(.borderedProminent)
-
                     if let saved {
                         Button { revealInFinder([saved]) } label: {
                             Label("Saved — Reveal in Finder", systemImage: "checkmark.circle.fill")
@@ -97,9 +74,43 @@ struct ImageEditView: View {
                     }
                 }
             }
-            .padding(20)
         }
         .onChange(of: model.files) { _ in reload() }
+    }
+
+    private var previewPane: some View {
+        VStack(spacing: 12) {
+            if let working {
+                let shown = finalCG(working)
+                let ns = NSImage(cgImage: shown, size: NSSize(width: shown.width, height: shown.height))
+                RegionSelector(image: ns, rects: $cropRects, singleSelection: true,
+                               onSelection: { updateSelection($0) })
+                    .frame(minHeight: 200, maxHeight: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.04)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.gray.opacity(0.25)))
+
+                HStack(spacing: 14) {
+                    label("rectangle", "\(working.width) × \(working.height) px")
+                    if let sel = selectionPx {
+                        let wp = Int((sel.width / CGFloat(working.width) * 100).rounded())
+                        let hp = Int((sel.height / CGFloat(working.height) * 100).rounded())
+                        label("crop", "Selection \(Int(sel.width)) × \(Int(sel.height)) px  (\(wp)% × \(hp)%)")
+                            .foregroundStyle(.primary)
+                    }
+                    Spacer()
+                    if let src = model.files.first { label("doc", "Source \(src.fileSize.humanBytes)") }
+                    if let est = estimatedBytes { label("arrow.down.doc", "Output ~\(Int64(est).humanBytes)") }
+                }
+                .font(.caption).foregroundStyle(.secondary)
+            } else {
+                ImagePreview(image: nil, caption: "Drop an image")
+            }
+
+            if !info.isEmpty {
+                MetadataPanel(fields: info)
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     // MARK: Resize & Skew panel
@@ -247,11 +258,5 @@ struct ImageEditView: View {
 
     private func label(_ symbol: String, _ text: String) -> some View {
         Label(text, systemImage: symbol).labelStyle(.titleAndIcon)
-    }
-    private func header(_ t: String, _ s: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(t).font(.title2).bold()
-            Text(s).font(.subheadline).foregroundStyle(.secondary)
-        }
     }
 }
