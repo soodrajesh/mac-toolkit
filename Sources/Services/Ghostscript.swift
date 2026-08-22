@@ -26,10 +26,12 @@ enum Ghostscript {
         for c in candidates where FileManager.default.isExecutableFile(atPath: c) {
             return c
         }
-        // Fall back to `which gs`.
+        // Fall back to `which gs`. GUI apps launch with a stripped-down PATH that
+        // omits /opt/homebrew/bin, so extend it before searching.
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         p.arguments = ["which", "gs"]
+        p.environment = PathHelper.extendedEnvironment()
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = Pipe()

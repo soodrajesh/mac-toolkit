@@ -1,6 +1,23 @@
 import AppKit
 import UniformTypeIdentifiers
 
+/// GUI apps launch with a stripped-down PATH that omits /opt/homebrew/bin and
+/// /usr/local/bin, so subprocesses (and their own internal `which`-style
+/// lookups, e.g. yt-dlp searching for `deno`) can fail to find Homebrew-
+/// installed tools that are actually present. Use `extendedEnvironment()` for
+/// any `Process` that shells out to, or itself shells out to, such a tool.
+enum PathHelper {
+    static func extendedEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin"]
+        let existingPath = env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        let existingComponents = Set(existingPath.split(separator: ":").map(String.init))
+        let prefix = extraPaths.filter { !existingComponents.contains($0) }
+        env["PATH"] = (prefix + [existingPath]).joined(separator: ":")
+        return env
+    }
+}
+
 /// Shared filesystem helpers for building output paths.
 enum OutputPath {
     /// Returns a URL next to `source` (or in `dir` if given) named
