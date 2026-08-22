@@ -96,6 +96,18 @@ enum YtDlp {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: yt)
 
+        // GUI apps launch with a stripped-down PATH that omits /opt/homebrew/bin,
+        // so yt-dlp can't find helpers it shells out to (e.g. `deno` for YouTube's
+        // JS-runtime-based extraction) even though they're installed. Extend PATH
+        // for the child process so those lookups succeed.
+        var env = ProcessInfo.processInfo.environment
+        let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin"]
+        let existingPath = env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        let existingComponents = Set(existingPath.split(separator: ":").map(String.init))
+        let prefix = extraPaths.filter { !existingComponents.contains($0) }
+        env["PATH"] = (prefix + [existingPath]).joined(separator: ":")
+        p.environment = env
+
         let outputPattern = "\(outputDir.path)/%(title).150s.%(ext)s"
         var args: [String] = []
 
